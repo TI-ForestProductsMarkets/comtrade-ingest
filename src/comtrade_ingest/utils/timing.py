@@ -20,3 +20,5 @@ def log_step_timing(logger: logging.Logger, step_num: int, step_name: str, t_ste
     logger.info(f"[Timing] Step {step_num} ({step_name}): {elapsed:.2f} seconds")
     return elapsed
 
+
+

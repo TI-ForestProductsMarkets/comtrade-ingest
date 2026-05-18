@@ -63,6 +63,17 @@ def test_ensure_comtrade_runtime_directories_creates_expected_dirs(tmp_path):
         ),
         log_level="INFO",
         log_file=str(tmp_path / "output" / "logs" / "LOG_API_PIPELINE.log"),
+        paths={
+            "root_dir": str(tmp_path),
+            "data_dir": str(tmp_path / "data"),
+            "single_data_dir": str(tmp_path / "data" / "single"),
+            "bulk_data_dir": str(tmp_path / "data" / "bulk"),
+            "output_dir": str(tmp_path / "output"),
+            "logs_dir": str(tmp_path / "output" / "logs"),
+            "manifest_dir": str(tmp_path / "output" / "manifest"),
+            "reports_dir": str(tmp_path / "output" / "reports"),
+            "quarantine_dir": str(tmp_path / "output" / "reports" / "_quarantine_zero_byte"),
+        },
     )
 
     ensure_comtrade_runtime_directories(cfg)

@@ -11,6 +11,30 @@ def get_project_root() -> Path:
     return PROJECT_ROOT
 
 
+def make_timestamped_path(path: str | Path | None, run_id: str) -> Path | None:
+    if not path:
+        return None
+
+    p = Path(path).expanduser()
+    suffix = p.suffix or ".json"
+
+    if p.suffix:
+        return p.with_name(f"{p.stem}_{run_id}{p.suffix}")
+
+    return p.with_name(f"{p.name}_{run_id}{suffix}")
+
+def make_latest_path(path: str | Path | None) -> Path | None:
+    if not path:
+        return None
+
+    p = Path(path).expanduser()
+    suffix = p.suffix or ".json"
+
+    if p.suffix:
+        return p.with_name(f"{p.stem}_latest{p.suffix}")
+
+    return p.with_name(f"{p.name}_latest{suffix}")
+
 def resolve_path(path: str | Path) -> Path:
     """
     Resolve a path safely.
@@ -46,19 +70,14 @@ def ensure_parent_directory(path: str | Path | None) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
 
 
-def ensure_comtrade_runtime_directories(cfg: Any) -> None:
-    """
-    Create all runtime directories needed by the Comtrade pipeline.
-
-    Works with your ComtradeConfig dataclass.
-    """
+def ensure_comtrade_runtime_directories(cfg: ComtradeConfig) -> None:
     ensure_directory(cfg.single.output.directory)
     ensure_directory(cfg.bulk.output.directory)
 
-    ensure_directory(cfg.single.output.quarantine_directory)
-    ensure_directory(cfg.bulk.output.quarantine_directory)
-
     ensure_parent_directory(cfg.single.output.manifest_file)
     ensure_parent_directory(cfg.bulk.output.manifest_file)
+
+    ensure_parent_directory(cfg.single.output.quarantine_file)
+    ensure_parent_directory(cfg.bulk.output.quarantine_file)
 
     ensure_parent_directory(cfg.log_file)

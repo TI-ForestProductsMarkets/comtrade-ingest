@@ -14,7 +14,7 @@
 # -------------------------------------------
 # PATHS
 # -------------------------------------------
-# ROOT_DIR this is the only path a new user needs to change.
+# Please Change the `root_dir` to your desired location. 
 
 paths:
   root_dir: "/storage/test"
@@ -27,7 +27,7 @@ paths:
   logs_dir: "{output_dir}/logs"
   manifest_dir: "{output_dir}/manifest"
   reports_dir: "{output_dir}/reports"
-  quarantine_dir: "{reports_dir}/_quarantine_zero_byte"
+  quarantine_dir: "{reports_dir}/_quarantine"
 
 # -------------------------------------------
 # Single DATA API DOWNLOADS
@@ -53,7 +53,7 @@ single:
 
   output:
     directory: "{single_data_dir}"
-    quarantine_directory: "{quarantine_dir}"
+    quarantine_file: "{quarantine_dir}/quarantine_zero_byte_single.json"
     manifest_file: "{manifest_dir}/download_manifest_single.json"
 
 # -------------------------------------------
@@ -82,7 +82,7 @@ bulk:
 
   output:
     directory: "{bulk_data_dir}"
-    quarantine_directory: "{quarantine_dir}"
+    quarantine_file: "{quarantine_dir}/quarantine_zero_byte_bulk.json"
     manifest_file: "{manifest_dir}/download_manifest_bulk.json"
 
 

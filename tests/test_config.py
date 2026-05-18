@@ -302,3 +302,81 @@ pagination:
     assert job.fallback_years_end == 2025
 
 
+def test_load_config_exposes_resolved_paths(tmp_path):
+    config_path = tmp_path / "comtrade.yaml"
+    root_dir = tmp_path / "runtime"
+
+    config_path.write_text(
+        f"""
+paths:
+  root_dir: "{root_dir}"
+  data_dir: "{{root_dir}}/data"
+  single_data_dir: "{{data_dir}}/single"
+  bulk_data_dir: "{{data_dir}}/bulk"
+  output_dir: "{{root_dir}}/output"
+  logs_dir: "{{output_dir}}/logs"
+  manifest_dir: "{{output_dir}}/manifest"
+  reports_dir: "{{output_dir}}/reports"
+  quarantine_dir: "{{reports_dir}}/_quarantine_zero_byte"
+
+single:
+  enabled: false
+  jobs: []
+  output:
+    directory: "{{single_data_dir}}"
+    quarantine_directory: "{{quarantine_dir}}"
+    manifest_file: "{{manifest_dir}}/download_manifest_single.json"
+
+bulk:
+  enabled: false
+  jobs: []
+  output:
+    directory: "{{bulk_data_dir}}"
+    quarantine_directory: "{{quarantine_dir}}"
+    manifest_file: "{{manifest_dir}}/download_manifest_bulk.json"
+
+log_level: INFO
+log_file: "{{logs_dir}}/LOG_API_PIPELINE.log"
+
+endpoint:
+  single: "https://example.com/single"
+  single_fallbacks: []
+  bulk: "https://example.com/bulk"
+
+default_params:
+  format: "csv"
+  maxRecords: 250000
+
+retry:
+  max_attempts: 3
+  backoff_seconds: 2.0
+
+runtime:
+  timeout_seconds: 30
+  overwrite_existing: false
+  max_workers: 1
+  existing_file_policy: "redownload"
+  show_progress: false
+
+auth:
+  enabled: false
+  method: "header"
+  header_name: "Ocp-Apim-Subscription-Key"
+  env_var_name: "COMTRADE_API_KEY"
+  query_param_name: "token"
+  env_file:
+
+pagination:
+  enabled: true
+  limit_param: "maxRecords"
+  offset_param: "offset"
+  start_offset: 0
+""",
+        encoding="utf-8",
+    )
+
+    cfg = load_comtrade_config(config_path)
+
+    assert cfg.paths["root_dir"] == str(root_dir)
+    assert cfg.paths["single_data_dir"] == str(root_dir / "data" / "single")
+    assert cfg.paths["logs_dir"] == str(root_dir / "output" / "logs")

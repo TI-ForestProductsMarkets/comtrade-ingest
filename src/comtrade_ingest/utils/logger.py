@@ -81,12 +81,24 @@ def get_log_level(log_level: str | int | None) -> int:
 
     return getattr(logging, str(log_level).upper(), logging.INFO)
 
+def make_run_id() -> str:
+    """
+    Create a timestamp-like run id shared across logs, manifests, and reports.
 
-def make_timestamped_log_path(log_file: str | Path | None) -> Path | None:
+    Example:
+        20260518_110439
+    """
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def make_timestamped_log_path(
+    log_file: str | Path | None,
+    run_id: str | None = None,
+) -> Path | None:
     if not log_file:
         return None
 
     path = Path(log_file).expanduser()
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = run_id or make_run_id()
 
     return path.with_name(f"{path.stem}_{timestamp}{path.suffix}")

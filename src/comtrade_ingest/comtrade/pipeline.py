@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
-
+from dataclasses import dataclass
 from click import confirm
 
 from comtrade_ingest.comtrade.api import (
@@ -39,7 +39,7 @@ from comtrade_ingest.comtrade.api import (
     validate_auth_preflight,
     RateLimitExceededError,
 )
-from comtrade_ingest.io.paths import ensure_comtrade_runtime_directories
+from comtrade_ingest.io.paths import ensure_comtrade_runtime_directories, make_latest_path, make_timestamped_path
 from comtrade_ingest.comtrade.config import ComtradeConfig, JobConfig, ModeConfig, load_comtrade_config
 from comtrade_ingest.io.paths import get_project_root, resolve_path
 from comtrade_ingest.utils.logger import get_logger, rel_path
@@ -53,39 +53,67 @@ from comtrade_ingest.comtrade.manifest import (
     validate_output_file
 )
 from comtrade_ingest.utils.progress import progress_bar
-from pathlib import Path
-
 from comtrade_ingest.comtrade.config import load_comtrade_config
 from comtrade_ingest.io.paths import get_project_root, ensure_comtrade_runtime_directories
 from comtrade_ingest.utils.logger import (
     get_logger,
-    setup_logging,
     get_log_level,
+    make_run_id,
     make_timestamped_log_path,
     rel_path,
+    setup_logging,
 )
 
 ## Set up a module-level logger
 logger = get_logger("COMTRADE.PIPELINE")
 
+@dataclass(frozen=True)
+class PipelineRunContext:
+    run_id: str
+    log_path: Path | None
+
+    single_manifest_path: Path | None
+    single_manifest_latest_path: Path | None
+    bulk_manifest_path: Path | None
+    bulk_manifest_latest_path: Path | None
+
+    single_quarantine_path: Path | None
+    single_quarantine_latest_path: Path | None
+    bulk_quarantine_path: Path | None
+    bulk_quarantine_latest_path: Path | None
 
 # ---------------------------------------------------------------------
 # Small generic helpers
 # ---------------------------------------------------------------------
 
+def _require_path(path: Path | None, name: str) -> Path:
+    if path is None:
+        raise ValueError(f"{name} is not set in run context.")
+    return path
+
 def _mode_output_dir(mode_cfg: ModeConfig) -> Path:
     return resolve_path(mode_cfg.output.directory)
 
-
 def _mode_manifest_path(mode_cfg: ModeConfig) -> Path:
-    return _mode_output_dir(mode_cfg) / mode_cfg.output.manifest_file
+    return resolve_path(mode_cfg.output.manifest_file)
 
 def _mode_quarantine_dir(mode_cfg: ModeConfig) -> Path:
-    if mode_cfg.output.quarantine_directory:
-        return resolve_path(mode_cfg.output.quarantine_directory)
+    if mode_cfg.output.quarantine_file:
+        return resolve_path(mode_cfg.output.quarantine_file).parent
 
-    return _mode_output_dir(mode_cfg) / "_quarantine_invalid"
+def write_quarantine_report(
+    rows: list[dict[str, Any]],
+    path: str | Path | None,
+) -> None:
+    if not path:
+        return
 
+    p = Path(path).expanduser()
+    p.parent.mkdir(parents=True, exist_ok=True)
+
+    with p.open("w", encoding="utf-8") as file:
+        json.dump(rows, file, indent=2)
+        
 def _format_output_file(template: str, params: dict[str, Any]) -> str:
     """
     Format output file names such as:
@@ -377,12 +405,70 @@ def _log_step(step: int, total: int, title: str) -> None:
     logger.info("=" * 72)
 
 
+
+
+def build_pipeline_run_context(
+    *,
+    cfg: ComtradeConfig,
+    run_id: str,
+    log_path: Path | None = None,
+) -> PipelineRunContext:
+    """
+    Build all run-specific paths from the resolved config and run_id.
+
+    This keeps timestamped/log/latest/quarantine path logic out of the main
+    pipeline body.
+    """
+    resolved_log_path = (
+        Path(log_path)
+        if log_path is not None
+        else make_timestamped_log_path(cfg.log_file, run_id=run_id)
+    )
+
+    return PipelineRunContext(
+        run_id=run_id,
+        log_path=resolved_log_path,
+
+        single_manifest_path=make_timestamped_path(
+            cfg.single.output.manifest_file,
+            run_id=run_id,
+        ),
+        single_manifest_latest_path=make_latest_path(
+            cfg.single.output.manifest_file,
+        ),
+
+        bulk_manifest_path=make_timestamped_path(
+            cfg.bulk.output.manifest_file,
+            run_id=run_id,
+        ),
+        bulk_manifest_latest_path=make_latest_path(
+            cfg.bulk.output.manifest_file,
+        ),
+
+        single_quarantine_path=make_timestamped_path(
+            cfg.single.output.quarantine_file,
+            run_id=run_id,
+        ),
+        single_quarantine_latest_path=make_latest_path(
+            cfg.single.output.quarantine_file,
+        ),
+
+        bulk_quarantine_path=make_timestamped_path(
+            cfg.bulk.output.quarantine_file,
+            run_id=run_id,
+        ),
+        bulk_quarantine_latest_path=make_latest_path(
+            cfg.bulk.output.quarantine_file,
+        ),
+    )
+
 # ---------------------------------------------------------------------
 # Bulk mode
 # ---------------------------------------------------------------------
 
 
-def run_bulk_downloads(cfg: ComtradeConfig) -> list[dict[str, Any]]:
+def run_bulk_downloads(cfg: ComtradeConfig,
+                        run_context: PipelineRunContext) -> list[dict[str, Any]]:
     """
     Run Comtrade Bulk API downloads.
 
@@ -468,7 +554,8 @@ def run_bulk_downloads(cfg: ComtradeConfig) -> list[dict[str, Any]]:
             )
 
    
-    write_manifest(manifest_rows, manifest_path)
+    write_manifest(manifest_rows,  run_context.bulk_manifest_path)
+    write_manifest(manifest_rows,  run_context.bulk_manifest_latest_path)
     return manifest_rows
 
 
@@ -569,7 +656,8 @@ def _download_single_job(
         "params": params,
     }
 
-def run_single_downloads(cfg: ComtradeConfig) -> list[dict[str, Any]]:
+def run_single_downloads(cfg: ComtradeConfig,
+                        run_context: PipelineRunContext) -> list[dict[str, Any]]:
     """
     Run normal Comtrade Data API downloads.
 
@@ -632,7 +720,8 @@ def run_single_downloads(cfg: ComtradeConfig) -> list[dict[str, Any]]:
 
             # Write incremental manifest after every completed job.
             # Useful if the run is interrupted.
-            write_manifest(manifest_rows, manifest_path)
+            write_manifest(manifest_rows, run_context.single_manifest_path)
+            write_manifest(manifest_rows, run_context.single_manifest_latest_path)
 
     downloaded = [row for row in manifest_rows if row.get("status") == "downloaded"]
     skipped = [row for row in manifest_rows if row.get("status") in {"skipped", "skipped_existing", "skipped_invalid_existing"}]
@@ -647,7 +736,8 @@ def run_single_downloads(cfg: ComtradeConfig) -> list[dict[str, Any]]:
     )
 
     # Write incremental manifest every few jobs.
-    write_manifest(manifest_rows, manifest_path)
+    write_manifest(manifest_rows, run_context.single_manifest_path)
+    write_manifest(manifest_rows, run_context.single_manifest_latest_path)
     return manifest_rows
 
 # ---------------------------------------------------------------------
@@ -690,14 +780,20 @@ def _summarize_local_filter(local_filter: dict[str, Any] | None) -> str:
 def log_run_configuration(
     *,
     cfg: ComtradeConfig,
-    config_path: resolved_config_path,
-    log_path: resolved_log_path | None,) -> None:
+    config_path: Path,
+    log_path: Path | None,
+    run_id: str,
+) -> None:
+    """
+    Log the configuration of this pipeline run in a clear and human-readable way.
+    """
+
     logger.info("=" * 72)
     logger.info("COMTRADE_INGEST DOWNLOAD PIPELINE")
     logger.info("=" * 72)
 
     logger.info("Config file:        %s", rel_path(config_path))
-    logger.info("Project root:       %s", rel_path(get_project_root()))
+    logger.info("Runtime root-dir:   %s", rel_path(cfg.paths.get("root_dir", "<not configured>")))
     logger.info("Log file:           %s", rel_path(log_path) if log_path else "console only")
     logger.info("Log level:          %s", cfg.log_level)
 
@@ -718,6 +814,7 @@ def log_run_configuration(
         logger.info("  endpoint:         %s", cfg.endpoint.bulk)
         logger.info("  output directory: %s", rel_path(_mode_output_dir(cfg.bulk)))
         logger.info("  manifest file:    %s", cfg.bulk.output.manifest_file)
+        #logger.info("  manifest latest:  %s", cfg.bulk.output.manifest_latest_file)
         logger.info("  jobs:             %d", len(cfg.bulk.jobs))
 
         for idx, job in enumerate(cfg.bulk.jobs, start=1):
@@ -732,6 +829,7 @@ def log_run_configuration(
         logger.info("  endpoint:         %s", cfg.endpoint.single)
         logger.info("  output directory: %s", rel_path(_mode_output_dir(cfg.single)))
         logger.info("  manifest file:    %s", cfg.single.output.manifest_file)
+        #logger.info("  manifest latest:  %s", cfg.single.output.manifest_latest_file)
         logger.info("  jobs:             %d", len(cfg.single.jobs))
 
         expanded_jobs = _expand_jobs(cfg.single.jobs)
@@ -772,8 +870,11 @@ def run_comtrade_download_pipeline(
 
     depending on comtrade.yaml.
     """
-    start_time = time.perf_counter()
 
+    ## Create a unique run ID 
+    start_time = time.perf_counter()
+    run_id = make_run_id()
+    
     project_root = get_project_root()
     resolved_config_path = config_path or project_root / "configs" / "comtrade.yaml"
 
@@ -781,22 +882,20 @@ def run_comtrade_download_pipeline(
     # This should already resolve paths like {root_dir}, {logs_dir}, etc.
     cfg = load_comtrade_config(resolved_config_path)
 
-    # 2. Decide final log path inside the pipeline.
-    # If caller passed log_path, respect it.
-    # Otherwise derive it from cfg.log_file.
-    resolved_log_path = Path(log_path) if log_path is not None else make_timestamped_log_path(cfg.log_file)
 
-    # 3. Create parent directory for log before setup_logging.
-    if resolved_log_path is not None:
-        resolved_log_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # 4. Setup logging now.
-    setup_logging(
-        level=get_log_level(cfg.log_level),
-        log_file=str(resolved_log_path) if resolved_log_path is not None else None,
+    run_context = build_pipeline_run_context(
+    cfg=cfg,
+    run_id=run_id,
+    log_path=log_path,
     )
 
-    logger = get_logger("COMTRADE.PIPELINE")
+    if run_context.log_path is not None:
+        run_context.log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    setup_logging(
+        level=get_log_level(cfg.log_level),
+        log_file=str(run_context.log_path) if run_context.log_path is not None else None,
+    )
 
     total_step = 6
 
@@ -812,7 +911,7 @@ def run_comtrade_download_pipeline(
     ################## Load config & prepare runtime
     _log_step(1, total_step, pipeline_steps[0])
     logger.info("Using Comtrade config: %s", rel_path(resolved_config_path))
-    logger.info("Using log file: %s", resolved_log_path)
+    logger.info("Using log file: %s", rel_path(run_context.log_path) if run_context.log_path is not None else "None")
 
     logger.info("Ensuring Comtrade runtime directories exist.")
     ensure_comtrade_runtime_directories(cfg)
@@ -820,7 +919,8 @@ def run_comtrade_download_pipeline(
     log_run_configuration(
         cfg=cfg,
         config_path=resolved_config_path,
-        log_path=resolved_log_path,
+        log_path=run_context.log_path,
+        run_id=run_context.run_id,
     )
 
     _confirm_run(confirm)
@@ -834,11 +934,11 @@ def run_comtrade_download_pipeline(
 
     ################# Run Bulk Downloads and Single API Downloads
     _log_step(3, total_step, pipeline_steps[2])
-    bulk_rows = run_bulk_downloads(cfg)
+    bulk_rows = run_bulk_downloads(cfg, run_context)
     all_manifest_rows.extend(bulk_rows)
 
     _log_step(4, total_step, pipeline_steps[3])
-    single_rows = run_single_downloads(cfg)
+    single_rows = run_single_downloads(cfg, run_context)
     all_manifest_rows.extend(single_rows)
 
 
@@ -848,7 +948,9 @@ def run_comtrade_download_pipeline(
     invalid_rows_all: list[dict[str, Any]] = []
 
     if cfg.bulk.enabled:
-        bulk_manifest_path = _mode_manifest_path(cfg.bulk)
+        bulk_manifest_path = _require_path(
+                            run_context.bulk_manifest_path,
+                            "Bulk manifest path")
         audit_manifest_file(bulk_manifest_path, fail_on_error=False)
 
         bulk_rows_for_audit = load_manifest(bulk_manifest_path)
@@ -870,7 +972,9 @@ def run_comtrade_download_pipeline(
                 )
 
     if cfg.single.enabled:
-        single_manifest_path = _mode_manifest_path(cfg.single)
+        single_manifest_path = _require_path(
+                            run_context.single_manifest_path,
+                            "Single manifest path")
         audit_manifest_file(single_manifest_path, fail_on_error=False)
 
         single_rows_for_audit = load_manifest(single_manifest_path)

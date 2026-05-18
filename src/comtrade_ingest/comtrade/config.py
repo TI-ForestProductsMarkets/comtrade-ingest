@@ -28,7 +28,7 @@ class EndpointConfig:
 class OutputConfig:
     directory: str
     manifest_file: str
-    quarantine_directory: str | None = None
+    quarantine_file: str | None = None
 
 @dataclass
 class JobConfig:
@@ -62,6 +62,7 @@ class ComtradeConfig:
     pagination: PaginationConfig
     log_level: str
     log_file: str | None
+    paths: dict[str, str]
 
 
 def _resolve_path_templates(raw: dict[str, Any]) -> dict[str, Any]:
@@ -134,7 +135,7 @@ def _resolve_path_templates(raw: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(output_cfg, dict):
             continue
 
-        for field_name in ["directory", "manifest_file", "quarantine_directory"]:
+        for field_name in ["directory", "manifest_file", "quarantine_file"]:
             if field_name in output_cfg:
                 output_cfg[field_name] = resolve_path_value(
                     output_cfg[field_name],
@@ -268,9 +269,9 @@ def _load_output(section_cfg: dict[str, Any], default_dir: str, default_manifest
     return OutputConfig(
         directory=str(output_cfg.get("directory", default_dir)),
         manifest_file=str(output_cfg.get("manifest_file", default_manifest)),
-        quarantine_directory=(
-            str(output_cfg.get("quarantine_directory"))
-            if output_cfg.get("quarantine_directory")
+        quarantine_file=(
+            str(output_cfg.get("quarantine_file"))
+            if output_cfg.get("quarantine_file")
             else None
         ),
     )
@@ -371,6 +372,7 @@ def load_comtrade_config(path: Path) -> ComtradeConfig:
         ),
         log_level=str(raw.get("log_level", "INFO")),
         log_file=raw.get("log_file"),
+        paths=raw.get("paths", {}),
     )
 
     if cfg.single.enabled and not cfg.endpoint.single:
