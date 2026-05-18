@@ -697,6 +697,7 @@ def log_run_configuration(
     logger.info("=" * 72)
 
     logger.info("Config file:        %s", rel_path(config_path))
+    logger.info("Project root:       %s", rel_path(get_project_root()))
     logger.info("Log file:           %s", rel_path(log_path) if log_path else "console only")
     logger.info("Log level:          %s", cfg.log_level)
 

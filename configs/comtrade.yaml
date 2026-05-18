@@ -32,7 +32,6 @@ paths:
 # -------------------------------------------
 # Single DATA API DOWNLOADS
 # -------------------------------------------
-# Single API downloads precise query results.
 # Recommended job unit:
 # one commodity group × one year or generated year loop.
 
@@ -60,8 +59,6 @@ single:
 # -------------------------------------------
 # BULK API DOWNLOADS
 # -------------------------------------------
-# Bulk downloads broad Comtrade files.
-# Commodity and flow filters should usually be applied locally after download.
 
 bulk:
   enabled: false

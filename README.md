@@ -1,5 +1,29 @@
 # `comtrade_ingest`
 
+## How to use
+
+### 1. Install
+
+pip install -e .
+
+### 2. Add API key
+
+echo "COMTRADE_API_KEY=..." > .env
+
+### 3. Edit config
+
+Change paths.root_dir in configs/comtrade.yaml.
+
+### 4. Run
+```bash
+python scripts/run_comtrade_download.py
+```
+or
+```bash
+comtrade-ingest run --config configs/comtrade.yaml
+```
+
+## Introduction
 `comtrade_ingest` provides a configuration-driven download pipeline for UN Comtrade data.
 
 It supports two acquisition modes:
