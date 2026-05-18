@@ -14,7 +14,7 @@
 # -------------------------------------------
 # PATHS
 # -------------------------------------------
-# Please Change the `root_dir` to your desired location. 
+# NOTE: Change the `root_dir` to your desired location. 
 
 paths:
   root_dir: "/storage/test"

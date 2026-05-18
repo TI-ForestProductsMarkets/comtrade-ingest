@@ -1,182 +1,561 @@
-# `comtrade_ingest`
+# comtrade-ingest
 
-## How to use
+`comtrade-ingest` is a config-driven downloader for UN Comtrade data.
 
-### 1. Install
+It supports two download modes:
 
-pip install -e .
+- **Single Data API downloads** for precise queries, such as one commodity group across one or more years.
+- **Bulk API downloads** for broad annual Comtrade files, where filtering can be applied locally after download.
 
-### 2. Add API key
+The package is designed around a YAML config file. Users define paths, API settings, jobs, retries, logging, and runtime behavior in `configs/comtrade.yaml`, then run one script.
 
-echo "COMTRADE_API_KEY=..." > .env
+---
 
-### 3. Edit config
+## Main idea
 
-Change paths.root_dir in configs/comtrade.yaml.
+The workflow is:
 
-### 4. Run
-```bash
-python scripts/run_comtrade_download.py
+```text
+configs/comtrade.yaml
+        ↓
+resolve path templates and reference tokens
+        ↓
+expand jobs
+        ↓
+run single and/or bulk downloads
+        ↓
+write data files
+        ↓
+write manifest, logs, and reports
+        ↓
+audit outputs
 ```
-or
-```bash
-comtrade-ingest run --config configs/comtrade.yaml
+
+For example, a user can define:
+
+```yaml
+cmdCode: "WOOD_PANEL"
+flowCode: "FLOW_ALL"
+use_reference_years: true
 ```
 
-## Introduction
-`comtrade_ingest` provides a configuration-driven download pipeline for UN Comtrade data.
-
-It supports two acquisition modes:
-
-1. **Single API downloads**  
-   Precise, query-based downloads from the normal Comtrade Data API.  
-   Useful for specific commodity codes, selected years, and controlled experiments.
-
-2. **Bulk API downloads**  
-   Broad yearly downloads from the Comtrade Bulk API.  
-   Useful for large-scale acquisition, especially when many commodity codes are needed.  
-   Commodity and flow filters are applied locally after download, because the Bulk API does not support commodity-level filtering in the request itself.
-
-The package includes:
-
-- authentication preflight
-- endpoint resolution
-- retry handling
-- pagination for single API downloads
-- parallel downloads via `max_workers`
-- gzip detection for bulk files
-- timestamped logs
-- user-facing configuration summary
-- confirmation prompt before large downloads
-- JSON manifests
-- automatic manifest audit
-- reference-token resolution such as `WOOD_PANEL` and `FLOW_ALL`
+and the package resolves those tokens from the reference modules, expands the jobs, downloads the data, and writes manifests and logs automatically.
 
 ---
 
 ## Package structure
 
-```bash
-src/comtrade_ingest/comtrade/
-├── __init__.py
-├── README.md
-├── api.py
-├── config.py
-├── download.py
-├── manifest.py
-├── pipeline.py
-└── utils.py
-```
-### Related reference files:
-```bash
-src/comtrade_ingest/reference/
-├── hs_sets.py
-├── flow_sets.py
-└── hs_version_set.py
+```text
+comtrade-ingest/
+├── configs/
+│   └── comtrade.yaml
+├── scripts/
+│   └── run_comtrade_download.py
+├── src/
+│   └── comtrade_ingest/
+│       ├── comtrade/
+│       │   ├── api.py
+│       │   ├── config.py
+│       │   ├── download.py
+│       │   ├── manifest.py
+│       │   └── pipeline.py
+│       ├── io/
+│       │   └── paths.py
+│       ├── reference/
+│       │   ├── flow_sets.py
+│       │   ├── hs_sets.py
+│       │   └── hs_version_set.py
+│       └── utils/
+│           ├── logger.py
+│           ├── progress.py
+│           └── timing.py
+└── tests/
 ```
 
-### Related tests/ files:
-```bash
-tests/comtrade/
-├── test_manifest.py
-└── test_pipeline_expansion.py
+Important distinction:
+
+- Repository name: `comtrade-ingest`
+- Python import package: `comtrade_ingest`
+
+So the package is installed as `comtrade-ingest`, but imported as:
+
+```python
+import comtrade_ingest
 ```
 
-## Main Entry point
-The main script is:
-```bash
-python scripts/run_comtrade_download.py
-```
-The pipeline performs the following steps:
-1. loads and summarizes the configuration
-2. asks for user confirmation
-3. validates authentication
-4. runs bulk downloads if enabled
-5. runs single API downloads if enabled
-6. writes and audits manifest files
-7. logs a final summary
+---
 
-## Configuration file
-The main config file is
-```bash
-configs/comtrade.yaml
-```
-The configuration file defines the parameters for both single API and bulk downloads. It includes sections for authentication, output settings, and specific parameters for each download mode. The configuration allows you to specify the years, commodity codes, flow codes, and other filters for your downloads, as well as settings for parallelism and error handling.
+## Installation
 
+From the repository root:
+
+```bash
+python -m venv ../venv/comtrade-ingest
+source ../venv/comtrade-ingest/bin/activate
+
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -e ".[dev]"
+```
+
+Check that the package imports correctly:
+
+```bash
+python -c "import comtrade_ingest; print(comtrade_ingest)"
+```
+
+---
 
 ## Authentication
-The downloader supports authentication via API tokens. You can specify the authentication configuration in your `comtrade.yaml` file under the `auth` section. For example:
+
+UN Comtrade API requests usually require an API subscription key.
+
+Create a `.env` file in the project root with following content:
+
+```text
+COMTRADE_API_KEY=your_key_here
+```
+
+The default config reads this key from `.env`:
 
 ```yaml
 auth:
-  type: "api_token"
-    token: "your_api_token_here"
-  query_param_name: "token" # The name of the query parameter to use for the token (default is "token")
-  env_file: ".env" # Optional path to a .env file containing the token
+        enabled: true
+        method: "header"
+        header_name: "Ocp-Apim-Subscription-Key"
+        env_var_name: "COMTRADE_API_KEY"
+        query_param_name: "token"
+        env_file: ".env"
 ```
 
-## Output
-The downloaded files will be saved to the output directory specified in the configuration. A manifest file (`manifest.csv`) will also be created in the output directory, summarizing the status of each bulk job, including any errors encountered during the download process.
+If authentication is disabled while using the standard UN Comtrade API endpoint, the pipeline fails early with a config validation error.
 
-## Error Handling
-If an error occurs during the download of a bulk job, the error message will be logged, and the manifest will indicate that the job encountered an error along with the error details. This allows you to easily identify and troubleshoot any issues with specific jobs in your bulk download configuration.
+---
 
-## Note
-- The bulk endpoint does not support commodity filters like `cmdCode` or `cmsCode`. If you need to filter by commodity, you may need to perform multiple bulk downloads with different parameters or use the single-query endpoint instead.
-- Ensure that your API token has the necessary permissions to access the Comtrade Bulk API and that you are adhering to any rate limits or usage policies set by the API provider.
+## Configuration
 
-## For more details on the Comtrade Bulk API and its parameters, please refer to the official documentation: https://comtradeapi.un.org/bulk/v1/
+The main config file is:
 
+```text
+configs/comtrade.yaml
+```
 
+Usually, the first thing a new user should change is only this:
 
-## How to use
+```yaml
+paths:
+        root_dir: "/storage/test"
+```
 
-1. Update `configs/comtrade.yaml` with the desired download settings.
+All other paths are derived automatically:
 
-   Check the following before running the pipeline:
+```yaml
+paths:
+        root_dir: "/storage/test"
 
-   - _Authentication_: make sure your Comtrade API token is available, usually through `.env` as `COMTRADE_API_KEY`.
-   - _Mode selection_: choose whether to run `single`, `bulk`, or both. For large downloads, it is usually safer to enable only one mode at a time.
-   - _Years_: configure year expansion with the `years` block.
-   - _Commodity and flow filters_: use reference tokens such as `WOOD_PANEL` and `FLOW_ALL` where appropriate.
-   - _Bulk local filters_: remember that the Bulk API does not apply commodity filters at the API level. Use `local_filter` to record filters that should be applied after download.
-   - _Output settings_: verify the output directory and manifest filename.
-   - _Runtime settings_: review `timeout_seconds`, `overwrite_existing`, and `max_workers`.
-   - _Logging_: confirm the configured log level and log file location.
+        data_dir: "{root_dir}/data"
+        single_data_dir: "{data_dir}/single"
+        bulk_data_dir: "{data_dir}/bulk"
 
-2. Run the main download script:
+        output_dir: "{root_dir}/output"
+        logs_dir: "{output_dir}/logs"
+        manifest_dir: "{output_dir}/manifest"
+        reports_dir: "{output_dir}/reports"
+        quarantine_dir: "{reports_dir}/_quarantine"
+```
 
-  ```bash
-  python scripts/run_comtrade_download.py
-  ```
+This produces an output layout like:
 
-3. Review the configuration summary.
-  Before downloads start, the pipeline prints a summary of the selected configuration and asks for confirmation:
-  ```text
-  Proceed with this Comtrade download configuration? [y/N]:
-  ```
-  Enter `y` to proceed or `N` to abort and make changes to the configuration file.
+```text
+/storage/test/
+├── data/
+│   ├── single/
+│   └── bulk/
+└── output/
+      ├── logs/
+      ├── manifest/
+      └───reports/
+         └── _quarantine/
+```
 
-4. Monitor progress in the console and log file.
-  Each run creates a timestamped log file under:
-  ```
-  output/reports/comtrade_download_YYYYMMDD_HHMMSS.log
-  ```
+The package creates required directories automatically.
 
-5. Check the manifest and audit summary.
-  The downloaded files are saved to the configured output directory. The pipeline also writes a manifest file summarizing each job.
+---
 
-  Example manifest locations:
-  ```
-  data/raw/api/single/download_manifest_single.json
-  data/raw/api/bulk/download_manifest_bulk.json
-  ```
-  At the end of the run, the pipeline audits the manifest and reports whether the download looks complete.
+## Running the pipeline
 
-6.Troubleshoot errors if needed.
-  If a download fails, check:
-  * console output for error messages
-  * the timestamped log file in `output/reports/`
-  * the manifest file for any jobs marked with errors, which will include error details for further investigation
+The recommended way during development is:
 
+```bash
+python scripts/run_comtrade_download.py
+```
+
+The script is intentionally minimal. It calls the package pipeline:
+
+```python
+run_comtrade_download_pipeline(...)
+```
+
+The pipeline handles:
+
+- config loading
+- path resolution
+- logging setup
+- runtime directory creation
+- config validation
+- authentication preflight
+- single and bulk downloads
+- manifest writing
+- manifest auditing
+- quarantine handling
+
+Before downloads begin, the pipeline prints a run summary and asks for confirmation:
+
+```text
+COMTRADE_INGEST DOWNLOAD PIPELINE
+========================================================================
+Config file:        configs/comtrade.yaml
+Runtime root-dir:   /storage/test
+Log file:           /storage/test/output/logs/LOG_API_PIPELINE_YYYYMMDD_HHMMSS.log
+Log level:          DEBUG
+
+Modes:
+        Bulk enabled:     no
+        Single enabled:   yes
+
+Runtime:
+        max_workers:      8
+        timeout_seconds:  300
+        overwrite:        no
+
+Single API:
+        endpoint:         https://comtradeapi.un.org/data/v1/get/C/A/HS
+        output directory: /storage/test/data/single
+        manifest file:    /storage/test/output/manifest/download_manifest_single.json
+        jobs:             1
+        expanded jobs:    5
+========================================================================
+Proceed with this Comtrade download configuration? [y/N]:
+```
+
+Enter `y` to continue.
+
+---
+
+## Single Data API downloads
+
+Single mode is for targeted API queries.
+
+Example:
+
+```yaml
+single:
+        enabled: true
+
+        jobs:
+                - name: "wood_panel_direct"
+                        params:
+                                reporterCode:
+                                partnerCode:
+                                cmdCode: "WOOD_PANEL"
+                                flowCode: "FLOW_ALL"
+
+                        output_file: "comtrade_{cmdCode}_{period}.csv"
+                        use_reference_years: true
+                        fallback_years_start: 1989
+                        fallback_years_end: 2025
+
+        output:
+                directory: "{single_data_dir}"
+                quarantine_file: "{quarantine_dir}/quarantine_zero_byte_single.json"
+                manifest_file: "{manifest_dir}/download_manifest_single.json"
+```
+
+The package can resolve tokens such as:
+
+```yaml
+cmdCode: "WOOD_PANEL"
+flowCode: "FLOW_ALL"
+```
+
+from:
+
+- `src/comtrade_ingest/reference/hs_sets.py`
+- `src/comtrade_ingest/reference/flow_sets.py`
+
+If `use_reference_years: true`, the package uses HS reference information to expand the job across valid years for the commodity code.
+
+Output files are written with predictable names:
+
+```text
+/storage/test/data/single/comtrade_440112_2017.csv
+/storage/test/data/single/comtrade_440112_2018.csv
+```
+
+Downloaded data files are not timestamped. This keeps reruns and existing-file checks predictable.
+
+---
+
+## Bulk API downloads
+
+Bulk mode is for broad annual Comtrade downloads.
+
+Example:
+
+```yaml
+bulk:
+        enabled: false
+
+        jobs:
+                - name: "hs_all_reporters"
+                        params:
+                                typeCode: "C"
+                                freqCode: "A"
+                                clCode: "HS"
+                                reporterCode: "all"
+                                partnerCode: "all"
+
+                        years:
+                                enabled: true
+                                start: 2024
+                                end: 2025
+
+                        output_file: "Comtrade_bulk_HS_{period}_all_reporters.zip"
+
+        output:
+                directory: "{bulk_data_dir}"
+                quarantine_file: "{quarantine_dir}/quarantine_zero_byte_bulk.json"
+                manifest_file: "{manifest_dir}/download_manifest_bulk.json"
+```
+
+Bulk downloads are usually broad files. Commodity and flow filters should generally be applied locally after download.
+
+---
+
+## Logs, manifests, and run IDs
+
+Each pipeline run gets one shared run ID:
+
+```text
+YYYYMMDD_HHMMSS
+```
+
+The run ID is used for logs and manifests.
+
+Example:
+
+```text
+output/
+├── logs/
+│   └── LOG_API_PIPELINE_20260518_131430.log
+├── manifest/
+│   ├── download_manifest_single_20260518_131430.json
+│   ├── download_manifest_single_20260518_131430_errors.csv
+│   └── download_manifest_single_latest.json
+└── reports/
+                └── _quarantine/
+```
+
+The timestamped manifest preserves the exact run history.
+
+The `_latest` manifest is overwritten each run for convenience.
+
+---
+
+## Manifest audit
+
+After downloads finish, the pipeline audits the manifest.
+
+The audit reports:
+
+- total manifest rows
+- downloaded jobs
+- skipped jobs
+- no-data jobs
+- error jobs
+- output file count
+- existing file count
+- missing file count
+- zero-byte file count
+- suspicious zero-byte file count
+- total output size
+- suffix distribution
+- overall ok status
+
+Example:
+
+```text
+Manifest audit: /storage/test/output/manifest/download_manifest_single_20260518_131430.json
+        total manifest rows: 10
+        downloaded jobs: 0
+        status_counts: {'error': 3, 'invalid_existing': 1, 'no_data': 5, 'skipped_existing': 1}
+        error jobs: 3
+        output_file_count: 5
+        existing_file_count: 2
+        missing_file_count: 3
+        zero_byte_file_count: 1
+        ok: False
+```
+
+If jobs fail, an error CSV is exported:
+
+```text
+output/manifest/download_manifest_single_20260518_131430_errors.csv
+```
+
+---
+
+## Quarantine behavior
+
+Quarantine is for invalid local output files, such as zero-byte files.
+
+It is not used for API errors such as rate limits or authentication failures.
+
+For example:
+
+```text
+status = error
+error_type = rate_limit
+```
+
+goes to the manifest and error CSV.
+
+But:
+
+```text
+status = invalid_existing
+validation_reason = zero_byte
+```
+
+can be quarantined.
+
+Quarantined files are moved under:
+
+```text
+output/reports/_quarantine/
+```
+
+After quarantine, rerun the pipeline to re-download those files.
+
+---
+
+## Existing output files
+
+Controlled by:
+
+```yaml
+runtime:
+        overwrite_existing: false
+        existing_file_policy: "redownload"
+```
+
+If `overwrite_existing: false`, valid existing files are skipped.
+
+Valid values for `existing_file_policy`:
+
+- `skip`
+- `redownload`
+- `fail`
+- `warn`
+
+Recommended default:
+
+```yaml
+existing_file_policy: "redownload"
+```
+
+---
+
+## Retry and rate limits
+
+Retry settings:
+
+```yaml
+retry:
+        max_attempts: 3
+        backoff_seconds: 2.0
+        rate_limit:
+                max_attempts: 5
+                buffer_seconds: 5
+                fallback_wait_seconds: 60
+```
+
+Meaning:
+
+- `max_attempts`: retries for ordinary transient HTTP or network errors.
+- `backoff_seconds`: base wait between retries.
+- `rate_limit.max_attempts`: retries for HTTP 429 rate limits.
+- `rate_limit.buffer_seconds`: extra wait added to server-provided retry time.
+- `rate_limit.fallback_wait_seconds`: wait time if the server does not provide a retry time.
+
+If `rate_limit.max_attempts: 0`, HTTP 429 retries are disabled.
+
+---
+
+## Running tests
+
+Run all unit tests:
+
+```bash
+pytest -q
+```
+
+List all discovered tests:
+
+```bash
+pytest --collect-only -q
+```
+
+Run one test file:
+
+```bash
+pytest tests/test_config.py -q
+```
+
+The test suite covers:
+
+- config loading
+- strict boolean parsing
+- job expansion
+- path resolution
+- API helper functions
+- manifest auditing
+- existing-file handling
+- quarantine behavior
+- pipeline expansion behavior
+
+---
+
+## Development notes
+
+Useful commands:
+
+```bash
+tree -I "__pycache__|*.pyc|*.egg-info|.pytest_cache"
+grep -R "vacoda" -n src tests scripts configs
+pytest -q
+python scripts/run_comtrade_download.py
+```
+
+Before committing:
+
+```bash
+pytest -q
+git status
+```
+
+---
+
+## Current scope
+
+`comtrade-ingest` focuses on downloading and staging raw Comtrade data.
+
+It does not aim to handle:
+
+- HS harmonization
+- data cleaning
+- economic modeling
+- downstream analysis
+- FOB/CIF adjustments
+
+Those should live in downstream packages or analysis projects.
 
