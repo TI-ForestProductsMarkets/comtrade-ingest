@@ -27,7 +27,7 @@ def test_ensure_comtrade_runtime_directories_creates_expected_dirs(tmp_path):
             output=OutputConfig(
                 directory=str(tmp_path / "data" / "single"),
                 manifest_file=str(tmp_path / "output" / "manifest" / "single.json"),
-                quarantine_directory=str(tmp_path / "output" / "reports" / "_quarantine_zero_byte"),
+                quarantine_file=str(tmp_path / "output" / "reports" / "_quarantine" / "single.json"),
             ),
         ),
         bulk=ModeConfig(
@@ -36,7 +36,7 @@ def test_ensure_comtrade_runtime_directories_creates_expected_dirs(tmp_path):
             output=OutputConfig(
                 directory=str(tmp_path / "data" / "bulk"),
                 manifest_file=str(tmp_path / "output" / "manifest" / "bulk.json"),
-                quarantine_directory=str(tmp_path / "output" / "reports" / "_quarantine_zero_byte"),
+                quarantine_file=str(tmp_path / "output" / "reports" / "_quarantine" / "bulk.json"),
             ),
         ),
         retry=RetryConfig(max_attempts=3, backoff_seconds=2.0),
@@ -72,7 +72,7 @@ def test_ensure_comtrade_runtime_directories_creates_expected_dirs(tmp_path):
             "logs_dir": str(tmp_path / "output" / "logs"),
             "manifest_dir": str(tmp_path / "output" / "manifest"),
             "reports_dir": str(tmp_path / "output" / "reports"),
-            "quarantine_dir": str(tmp_path / "output" / "reports" / "_quarantine_zero_byte"),
+            "quarantine_file": str(tmp_path / "output" / "reports" / "_quarantine" / "single.json"),
         },
     )
 
@@ -82,4 +82,4 @@ def test_ensure_comtrade_runtime_directories_creates_expected_dirs(tmp_path):
     assert (tmp_path / "data" / "bulk").is_dir()
     assert (tmp_path / "output" / "manifest").is_dir()
     assert (tmp_path / "output" / "logs").is_dir()
-    assert (tmp_path / "output" / "reports" / "_quarantine_zero_byte").is_dir()
+    assert (tmp_path / "output" / "reports" / "_quarantine").is_dir()

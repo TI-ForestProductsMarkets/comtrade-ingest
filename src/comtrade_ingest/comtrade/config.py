@@ -211,8 +211,15 @@ def _load_jobs(section_name: str, section_cfg: dict[str, Any]) -> list[JobConfig
         if not isinstance(years_cfg, dict):
             raise ValueError(f"{section_name}.jobs[{idx}].years must be a mapping")
 
-        years_enabled = bool(years_cfg.get("enabled", False))
-        use_reference_years = bool(raw_job.get("use_reference_years", False))
+        years_enabled = _parse_bool(
+                        years_cfg.get("enabled", False),
+                        field_name=f"{section_name}.jobs[{idx}].years.enabled",
+                        )
+
+        use_reference_years = _parse_bool(
+            raw_job.get("use_reference_years", False),
+            field_name=f"{section_name}.jobs[{idx}].use_reference_years",
+        )
 
         if years_enabled and use_reference_years:
             raise ValueError(
@@ -260,6 +267,23 @@ def _load_jobs(section_name: str, section_cfg: dict[str, Any]) -> list[JobConfig
 
     return jobs
 
+def _parse_bool(value: Any, *, field_name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+
+        if normalized in {"true", "yes", "y", "1"}:
+            return True
+
+        if normalized in {"false", "no", "n", "0"}:
+            return False
+
+    raise ValueError(
+        f"{field_name} must be a boolean. Use true/false, yes/no, or 1/0. "
+        f"Got {value!r}."
+    )
 
 def _load_output(section_cfg: dict[str, Any], default_dir: str, default_manifest: str) -> OutputConfig:
     output_cfg = section_cfg.get("output", {})
@@ -288,7 +312,10 @@ def _load_mode(
         section_cfg = {}
 
     return ModeConfig(
-        enabled=bool(section_cfg.get("enabled", False)),
+        enabled=_parse_bool(
+                    section_cfg.get("enabled", False),
+                    field_name=f"{section_name}.enabled",
+                    ),
         jobs=_load_jobs(section_name, section_cfg),
         output=_load_output(section_cfg, default_dir, default_manifest),
     )
@@ -351,13 +378,21 @@ def load_comtrade_config(path: Path) -> ComtradeConfig:
         ),
         runtime=DownloadRuntimeConfig(
             timeout_seconds=int(runtime_cfg.get("timeout_seconds", 120)),
-            overwrite_existing=bool(runtime_cfg.get("overwrite_existing", False)),
+             overwrite_existing=_parse_bool(
+                            runtime_cfg.get("overwrite_existing", False),
+                            field_name="runtime.overwrite_existing",
+                ),
             max_workers=int(runtime_cfg.get("max_workers", 4)),
             existing_file_policy=str(runtime_cfg.get("existing_file_policy", "redownload")).strip().lower(),
-            show_progress=bool(runtime_cfg.get("show_progress", True)),
-        ),
+            show_progress=_parse_bool(
+                            runtime_cfg.get("show_progress", True),
+                            field_name="runtime.show_progress",
+                    ),),
         auth=AuthConfig(
-            enabled=bool(auth_cfg.get("enabled", False)),
+            enabled=_parse_bool(
+                        auth_cfg.get("enabled", False),
+                        field_name="auth.enabled",
+                    ),
             method=str(auth_cfg.get("method", "query")).strip().lower(),
             header_name=str(auth_cfg.get("header_name", "Ocp-Apim-Subscription-Key")),
             env_var_name=str(auth_cfg.get("env_var_name", "COMTRADE_API_KEY")),
@@ -365,7 +400,9 @@ def load_comtrade_config(path: Path) -> ComtradeConfig:
             env_file=(str(auth_cfg.get("env_file", "")).strip() or None),
         ),
         pagination=PaginationConfig(
-            enabled=bool(pagination_cfg.get("enabled", False)),
+            enabled=_parse_bool(pagination_cfg.get("enabled", False),
+                                field_name="pagination.enabled",
+                            ),
             limit_param=str(pagination_cfg.get("limit_param", "maxRecords")),
             offset_param=str(pagination_cfg.get("offset_param", "offset")),
             start_offset=int(pagination_cfg.get("start_offset", 0)),

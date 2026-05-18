@@ -1,6 +1,78 @@
 from pathlib import Path
 from comtrade_ingest.comtrade.config import load_comtrade_config
 
+import pytest
+
+from comtrade_ingest.comtrade.config import (
+    AuthConfig,
+    ComtradeConfig,
+    EndpointConfig,
+    ModeConfig,
+    OutputConfig,
+)
+from comtrade_ingest.comtrade.api import (
+    DownloadRuntimeConfig,
+    PaginationConfig,
+    RetryConfig,
+)
+from comtrade_ingest.comtrade.utils import validate_comtrade_config
+
+
+def test_validate_config_rejects_disabled_auth_for_comtrade_endpoint(tmp_path):
+    cfg = ComtradeConfig(
+        endpoint=EndpointConfig(
+            single="https://comtradeapi.un.org/data/v1/get/C/A/HS",
+            single_fallbacks=["https://api.uncomtrade.org/data/v1/get/C/A/HS"],
+            bulk="https://comtradeapi.un.org/bulk/v1/get/",
+        ),
+        default_params={},
+        single=ModeConfig(
+            enabled=True,
+            jobs=[object()],  # or use a real JobConfig if your type checker complains
+            output=OutputConfig(
+                directory=str(tmp_path / "data" / "single"),
+                manifest_file=str(tmp_path / "output" / "manifest" / "single.json"),
+                quarantine_file=str(tmp_path / "output" / "reports" / "_quarantine" / "single.json"),
+            ),
+        ),
+        bulk=ModeConfig(
+            enabled=False,
+            jobs=[],
+            output=OutputConfig(
+                directory=str(tmp_path / "data" / "bulk"),
+                manifest_file=str(tmp_path / "output" / "manifest" / "bulk.json"),
+                quarantine_file=str(tmp_path / "output" / "reports" / "_quarantine" / "bulk.json"),
+            ),
+        ),
+        retry=RetryConfig(max_attempts=3, backoff_seconds=2.0),
+        runtime=DownloadRuntimeConfig(
+            timeout_seconds=30,
+            overwrite_existing=False,
+            max_workers=1,
+            existing_file_policy="redownload",
+            show_progress=False,
+        ),
+        auth=AuthConfig(
+            enabled=False,
+            method="header",
+            header_name="Ocp-Apim-Subscription-Key",
+            env_var_name="COMTRADE_API_KEY",
+            query_param_name="token",
+            env_file=".env",
+        ),
+        pagination=PaginationConfig(
+            enabled=True,
+            limit_param="maxRecords",
+            offset_param="offset",
+            start_offset=0,
+        ),
+        log_level="INFO",
+        log_file=str(tmp_path / "output" / "logs" / "LOG_API_PIPELINE.log"),
+        paths={"root_dir": str(tmp_path)},
+    )
+
+    with pytest.raises(ValueError, match="auth.enabled=false"):
+        validate_comtrade_config(cfg)
 
 def test_config_does_not_resolve_job_output_file_templates(tmp_path):
     config_path = tmp_path / "comtrade.yaml"
@@ -30,7 +102,7 @@ single:
         end: 2020
   output:
     directory: "{{single_data_dir}}"
-    quarantine_directory: "{{quarantine_dir}}"
+    quarantine_file: "{{quarantine_dir}}"
     manifest_file: "{{manifest_dir}}/download_manifest_single.json"
 
 bulk:
@@ -38,7 +110,7 @@ bulk:
   jobs: []
   output:
     directory: "{{root_dir}}/data/bulk"
-    quarantine_directory: "{{quarantine_dir}}"
+    quarantine_file: "{{quarantine_dir}}"
     manifest_file: "{{manifest_dir}}/download_manifest_bulk.json"
 
 log_level: INFO
@@ -115,7 +187,7 @@ single:
         end: 2020
   output:
     directory: "{{single_data_dir}}"
-    quarantine_directory: "{{quarantine_dir}}"
+    quarantine_file: "{{quarantine_dir}}"
     manifest_file: "{{manifest_dir}}/download_manifest_single.json"
 
 bulk:
@@ -123,7 +195,7 @@ bulk:
   jobs: []
   output:
     directory: "{{bulk_data_dir}}"
-    quarantine_directory: "{{quarantine_dir}}"
+    quarantine_file: "{{quarantine_dir}}"
     manifest_file: "{{manifest_dir}}/download_manifest_bulk.json"
 
 log_level: INFO
@@ -173,7 +245,7 @@ pagination:
     assert cfg.single.output.manifest_file == str(
         root_dir / "output" / "manifest" / "download_manifest_single.json"
     )
-    assert cfg.single.output.quarantine_directory == str(
+    assert cfg.single.output.quarantine_file == str(
         root_dir / "output" / "reports" / "_quarantine_zero_byte"
     )
     assert cfg.log_file == str(root_dir / "output" / "logs" / "LOG_API_PIPELINE.log")
@@ -302,6 +374,61 @@ pagination:
     assert job.fallback_years_end == 2025
 
 
+def test_load_config_rejects_invalid_boolean(tmp_path):
+    config_path = tmp_path / "comtrade.yaml"
+
+    config_path.write_text(
+        """
+single:
+  enabled: tru
+  jobs: []
+
+bulk:
+  enabled: false
+  jobs: []
+
+endpoint:
+  single: "https://example.com/single"
+  single_fallbacks: []
+  bulk: "https://example.com/bulk"
+
+default_params: {}
+
+retry:
+  max_attempts: 3
+  backoff_seconds: 2.0
+
+runtime:
+  timeout_seconds: 30
+  overwrite_existing: false
+  max_workers: 1
+  existing_file_policy: "redownload"
+  show_progress: true
+
+auth:
+  enabled: false
+  method: "header"
+  header_name: "Ocp-Apim-Subscription-Key"
+  env_var_name: "COMTRADE_API_KEY"
+  query_param_name: "token"
+  env_file:
+
+pagination:
+  enabled: true
+  limit_param: "maxRecords"
+  offset_param: "offset"
+  start_offset: 0
+
+log_level: INFO
+log_file:
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="single.enabled must be a boolean"):
+        load_comtrade_config(config_path)
+
+
 def test_load_config_exposes_resolved_paths(tmp_path):
     config_path = tmp_path / "comtrade.yaml"
     root_dir = tmp_path / "runtime"
@@ -324,7 +451,7 @@ single:
   jobs: []
   output:
     directory: "{{single_data_dir}}"
-    quarantine_directory: "{{quarantine_dir}}"
+    quarantine_file: "{{quarantine_dir}}"
     manifest_file: "{{manifest_dir}}/download_manifest_single.json"
 
 bulk:
@@ -332,7 +459,7 @@ bulk:
   jobs: []
   output:
     directory: "{{bulk_data_dir}}"
-    quarantine_directory: "{{quarantine_dir}}"
+    quarantine_file: "{{quarantine_dir}}"
     manifest_file: "{{manifest_dir}}/download_manifest_bulk.json"
 
 log_level: INFO

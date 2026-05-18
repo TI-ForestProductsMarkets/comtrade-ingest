@@ -40,6 +40,7 @@ from comtrade_ingest.comtrade.api import (
     validate_auth_preflight,
     RateLimitExceededError,
 )
+from comtrade_ingest.comtrade.utils import log_config_warnings, validate_comtrade_config
 from comtrade_ingest.io.paths import ensure_comtrade_runtime_directories, make_latest_path, make_timestamped_path
 from comtrade_ingest.comtrade.config import ComtradeConfig, JobConfig, ModeConfig, load_comtrade_config
 from comtrade_ingest.io.paths import get_project_root, resolve_path
@@ -977,12 +978,18 @@ def run_comtrade_download_pipeline(
     logger.info("Ensuring Comtrade runtime directories exist.")
     ensure_comtrade_runtime_directories(cfg)
 
+    ## Validate the full resolved configuration for transparency and debugging.
+    validate_comtrade_config(cfg)
+
     log_run_configuration(
         cfg=cfg,
         config_path=resolved_config_path,
         log_path=run_context.log_path,
         run_id=run_context.run_id,
     )
+
+    ## Warn about any non-fatal config issues that might cause problems.
+    log_config_warnings(cfg)
 
     _confirm_run(confirm)
 
