@@ -14,8 +14,8 @@ from comtrade_ingest.reference.cmdCode_dict import HS_VALID_YEARS as DEFAULT_HS_
 # If you define LOCAL_HS_VALID_YEARS below, it will be used instead of the imported default.
 
 LOCAL_HS_VALID_YEARS: dict[str, tuple[int, int]] = {
-    "440112": (2015, 2018),
-    "440220": (2008, 2015),
+    "440112": (2016, 2018),
+    "440220": (2008, 2009),
 }
 
 try:

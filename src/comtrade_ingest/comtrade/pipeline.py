@@ -53,6 +53,18 @@ from comtrade_ingest.comtrade.manifest import (
     validate_output_file
 )
 from comtrade_ingest.utils.progress import progress_bar
+from pathlib import Path
+
+from comtrade_ingest.comtrade.config import load_comtrade_config
+from comtrade_ingest.io.paths import get_project_root, ensure_comtrade_runtime_directories
+from comtrade_ingest.utils.logger import (
+    get_logger,
+    setup_logging,
+    get_log_level,
+    make_timestamped_log_path,
+    rel_path,
+)
+
 ## Set up a module-level logger
 logger = get_logger("COMTRADE.PIPELINE")
 
@@ -678,9 +690,8 @@ def _summarize_local_filter(local_filter: dict[str, Any] | None) -> str:
 def log_run_configuration(
     *,
     cfg: ComtradeConfig,
-    config_path: Path,
-    log_path: Path | None,
-) -> None:
+    config_path: resolved_config_path,
+    log_path: resolved_log_path | None,) -> None:
     logger.info("=" * 72)
     logger.info("COMTRADE_INGEST DOWNLOAD PIPELINE")
     logger.info("=" * 72)
@@ -765,31 +776,54 @@ def run_comtrade_download_pipeline(
     project_root = get_project_root()
     resolved_config_path = config_path or project_root / "configs" / "comtrade.yaml"
 
+    # 1. Load config first.
+    # This should already resolve paths like {root_dir}, {logs_dir}, etc.
+    cfg = load_comtrade_config(resolved_config_path)
+
+    # 2. Decide final log path inside the pipeline.
+    # If caller passed log_path, respect it.
+    # Otherwise derive it from cfg.log_file.
+    resolved_log_path = Path(log_path) if log_path is not None else make_timestamped_log_path(cfg.log_file)
+
+    # 3. Create parent directory for log before setup_logging.
+    if resolved_log_path is not None:
+        resolved_log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # 4. Setup logging now.
+    setup_logging(
+        level=get_log_level(cfg.log_level),
+        log_file=str(resolved_log_path) if resolved_log_path is not None else None,
+    )
+
+    logger = get_logger("COMTRADE.PIPELINE")
+
     total_step = 6
 
     pipeline_steps = [
-        "Load and summarize configuration",
+        "Load configuration and prepare runtime",
         "Validate authentication",
         "Run bulk downloads",
         "Run single API downloads",
         "Audit manifest",
-        "Finish"
+        "Finish",
     ]
 
-    ################## Load config 
+    ################## Load config & prepare runtime
     _log_step(1, total_step, pipeline_steps[0])
     logger.info("Using Comtrade config: %s", rel_path(resolved_config_path))
-    cfg = load_comtrade_config(resolved_config_path)
+    logger.info("Using log file: %s", resolved_log_path)
+
     logger.info("Ensuring Comtrade runtime directories exist.")
     ensure_comtrade_runtime_directories(cfg)
 
     log_run_configuration(
         cfg=cfg,
         config_path=resolved_config_path,
-        log_path=log_path,
-        )
+        log_path=resolved_log_path,
+    )
+
     _confirm_run(confirm)
-    
+
     ################## Validate authentication
     _log_step(2, total_step, pipeline_steps[1])
     validate_auth_preflight(cfg.auth)

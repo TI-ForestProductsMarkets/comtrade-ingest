@@ -1,6 +1,7 @@
-import logging
-from pathlib import Path
 
+import logging
+from datetime import datetime
+from pathlib import Path
 _PROJECT_ROOT = Path(__file__).parents[3]
 
 
@@ -67,3 +68,25 @@ def setup_logging(level: int = logging.INFO, log_file: str | Path | None = None)
     # Silence noisy third-party loggers regardless of the chosen level
     for noisy in ("watchdog", "urllib3", "httpx", "httpcore"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
+
+
+
+
+def get_log_level(log_level: str | int | None) -> int:
+    if log_level is None:
+        return logging.INFO
+
+    if isinstance(log_level, int):
+        return log_level
+
+    return getattr(logging, str(log_level).upper(), logging.INFO)
+
+
+def make_timestamped_log_path(log_file: str | Path | None) -> Path | None:
+    if not log_file:
+        return None
+
+    path = Path(log_file).expanduser()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    return path.with_name(f"{path.stem}_{timestamp}{path.suffix}")

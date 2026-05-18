@@ -64,8 +64,86 @@ class ComtradeConfig:
     log_file: str | None
 
 
-
 def _resolve_path_templates(raw: dict[str, Any]) -> dict[str, Any]:
+    """
+    Resolve only path-related templates.
+
+    This intentionally does NOT resolve every string in the config,
+    because fields like output_file use job templates such as:
+
+        comtrade_{cmdCode}_{period}.csv
+
+    Those must be resolved later during job expansion.
+    """
+    paths_cfg = raw.get("paths", {})
+
+    if paths_cfg is None:
+        paths_cfg = {}
+
+    if not isinstance(paths_cfg, dict):
+        raise ValueError("paths must be a mapping")
+
+    resolved_paths: dict[str, str] = {}
+
+    for key, value in paths_cfg.items():
+        if value is None:
+            continue
+
+        if not isinstance(value, str):
+            raise ValueError(
+                f"paths.{key} must be a string, got {type(value).__name__}"
+            )
+
+        try:
+            resolved_paths[key] = value.format(**resolved_paths)
+        except KeyError as exc:
+            missing = exc.args[0]
+            raise KeyError(
+                f"paths.{key} references unknown path template {{{missing}}}"
+            ) from exc
+
+    raw["paths"] = resolved_paths
+
+    def resolve_path_value(value: Any, field_name: str) -> Any:
+        if value is None:
+            return None
+
+        if not isinstance(value, str):
+            return value
+
+        try:
+            return value.format(**resolved_paths)
+        except KeyError as exc:
+            missing = exc.args[0]
+            raise KeyError(
+                f"{field_name} references unknown path template {{{missing}}}"
+            ) from exc
+
+    # Top-level log file
+    raw["log_file"] = resolve_path_value(raw.get("log_file"), "log_file")
+
+    # Mode-specific output paths
+    for mode_name in ["single", "bulk"]:
+        mode_cfg = raw.get(mode_name, {})
+
+        if not isinstance(mode_cfg, dict):
+            continue
+
+        output_cfg = mode_cfg.get("output", {})
+
+        if not isinstance(output_cfg, dict):
+            continue
+
+        for field_name in ["directory", "manifest_file", "quarantine_directory"]:
+            if field_name in output_cfg:
+                output_cfg[field_name] = resolve_path_value(
+                    output_cfg[field_name],
+                    f"{mode_name}.output.{field_name}",
+                )
+
+    return raw
+
+def _resolve_path_templates_deprecated(raw: dict[str, Any]) -> dict[str, Any]:
     """
     Resolve path templates in config.
 
