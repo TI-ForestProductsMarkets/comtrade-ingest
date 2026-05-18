@@ -161,6 +161,22 @@ def log_config_warnings(cfg: ComtradeConfig) -> None:
 
 def validate_comtrade_config(cfg: ComtradeConfig) -> None:
     
+
+    if cfg.validation.min_comtrade_year < 1962:
+        raise ValueError(
+        "validation.min_comtrade_year is suspiciously low. "
+        f"Got {cfg.validation.min_comtrade_year}."
+    )
+    if cfg.validation.max_future_year_offset < 0:
+        raise ValueError(
+        "validation.max_future_year_offset must be >= 0."
+    )
+
+    if cfg.validation.max_expanded_years_per_job < 1:
+        raise ValueError(
+        "validation.max_expanded_years_per_job must be >= 1."
+    )
+
     if not cfg.auth.enabled:
         protected_endpoints = [
             cfg.endpoint.single,

@@ -1,8 +1,27 @@
 from comtrade_ingest.comtrade.config import JobConfig
-from comtrade_ingest.comtrade.pipeline import _expand_year_jobs
+from comtrade_ingest.comtrade.pipeline import _expand_year_jobs, _expand_cmd_code_jobs
+from comtrade_ingest.comtrade.errors import ConfigValidationError
+from conftest import create_test_config
 
+import pytest
+
+
+def test_expand_year_jobs_rejects_unreasonable_year_range():
+    """Validation now happens in pipeline._expand_year_jobs(), raises ConfigValidationError."""
+    cfg = create_test_config()
+    job = JobConfig(
+        name="bad_year_range",
+        params={"cmdCode": "440112"},
+        output_file="comtrade_{cmdCode}_{period}.csv",
+        all_years_start=2017,
+        all_years_end=20018,
+    )
+
+    with pytest.raises(ConfigValidationError, match="too far in the future"):
+        _expand_year_jobs(job, cfg)
 
 def test_expand_year_jobs_with_explicit_years():
+    cfg = create_test_config()
     job = JobConfig(
         name="test",
         params={"cmdCode": "441012"},
@@ -11,16 +30,11 @@ def test_expand_year_jobs_with_explicit_years():
         all_years_end=2025,
     )
 
-    expanded = _expand_year_jobs(job)
+    expanded = _expand_year_jobs(job, cfg)
 
     assert len(expanded) == 3
     assert [j.params["period"] for j in expanded] == ["2023", "2024", "2025"]
     assert [j.name for j in expanded] == ["test_2023", "test_2024", "test_2025"]
-
-
-
-from comtrade_ingest.comtrade.config import JobConfig
-from comtrade_ingest.comtrade.pipeline import _expand_cmd_code_jobs
 
 
 def test_expand_cmd_code_jobs():

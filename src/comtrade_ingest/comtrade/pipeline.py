@@ -27,6 +27,7 @@ from urllib.parse import urlencode
 from dataclasses import dataclass
 from click import confirm
 
+from comtrade_ingest.comtrade.errors import ConfigValidationError
 from comtrade_ingest.comtrade.api import (
     build_auth_headers,
     build_query_params,
@@ -104,6 +105,22 @@ def _mode_quarantine_dir(mode_cfg: ModeConfig) -> Path | None:
         return resolve_path(mode_cfg.output.quarantine_file).parent
 
     return None
+
+def _validate_job_expansion(cfg: ComtradeConfig) -> None:
+    try:
+        if cfg.single.enabled:
+            _expand_jobs(cfg.single.jobs, cfg)
+
+        if cfg.bulk.enabled:
+            _expand_jobs(cfg.bulk.jobs, cfg)
+
+    except ConfigValidationError:
+        raise
+    except Exception as exc:
+        raise ConfigValidationError(
+            "Job expansion failed. Check cmdCode, year ranges, "
+            "use_reference_years, and reference HS year settings."
+        ) from exc
 
 def write_quarantine_report(
     rows: list[dict[str, Any]],
@@ -337,7 +354,9 @@ def _expand_cmd_code_jobs(job: JobConfig) -> list[JobConfig]:
     return expanded_jobs
 
 
-def _get_year_range_for_job(job: JobConfig) -> tuple[int, int] | None:
+def _get_year_range_for_job(job: JobConfig, 
+                            MIN_COMTRADE_YEAR: int, 
+                            MAX_REASONABLE_FUTURE_YEAR: int) -> tuple[int, int] | None:
     """
     Determine year range for a job.
 
@@ -373,7 +392,7 @@ def _get_year_range_for_job(job: JobConfig) -> tuple[int, int] | None:
     return None
 
 
-def _expand_year_jobs(job: JobConfig) -> list[JobConfig]:
+def _expand_year_jobs(job: JobConfig, cfg: ComtradeConfig) -> list[JobConfig]:
     """
     Expand a job into one job per year.
 
@@ -384,7 +403,17 @@ def _expand_year_jobs(job: JobConfig) -> list[JobConfig]:
     If no year range is available, return the original job unchanged.
     If year range is invalid, log one clean error and skip the job.
     """
-    year_range = _get_year_range_for_job(job)
+    from datetime import datetime
+  
+    min_year = cfg.validation.min_comtrade_year
+    max_year = datetime.now().year + cfg.validation.max_future_year_offset
+    max_expanded = cfg.validation.max_expanded_years_per_job
+
+    year_range = _get_year_range_for_job(
+        job,
+        MIN_COMTRADE_YEAR=min_year,
+        MAX_REASONABLE_FUTURE_YEAR=max_year,
+    )
 
     if year_range is None:
         return [job]
@@ -399,6 +428,39 @@ def _expand_year_jobs(job: JobConfig) -> list[JobConfig]:
         return []
 
     start, end = year_range
+    
+    # All validation happens here in pipeline.py with full config context
+    if start > end:
+        raise ConfigValidationError(
+            f"Invalid year range for {job.name}: start_year={start} "
+            f"is greater than end_year={end}."
+        )
+    
+    if start < min_year:
+        cmd_code = job.params.get("cmdCode", "unknown")
+        raise ConfigValidationError(
+            f"Invalid HS valid-year range for cmdCode={cmd_code!r}: "
+            f"start_year={start} is earlier than configured "
+            f"min_comtrade_year={min_year}. "
+            "If this earlier year is intentional, update "
+            "validation.min_comtrade_year in configs/comtrade.yaml. "
+            "Otherwise, check LOCAL_HS_VALID_YEARS in reference/hs_sets.py."
+        )
+    
+    if end > max_year:
+        cmd_code = job.params.get("cmdCode", "unknown")
+        raise ConfigValidationError(
+            f"Invalid HS valid-year range for cmdCode={cmd_code!r}: "
+            f"end_year={end} is too far in the future. "
+            f"Maximum allowed year is {max_year}."
+        )
+
+    n_years = end - start + 1
+    if n_years > max_expanded:
+        raise ConfigValidationError(
+            f"Job {job.name!r} would expand to {n_years} yearly jobs "
+            f"({start}–{end}). This is probably a config/reference mistake."
+        )
 
     if not isinstance(start, int) or not isinstance(end, int):
         logger.error(
@@ -409,15 +471,6 @@ def _expand_year_jobs(job: JobConfig) -> list[JobConfig]:
         )
         return []
 
-    if start > end:
-        logger.error(
-            "Invalid year_range for job %r: start_year %s is greater than end_year %s. "
-            "Skipping this job.",
-            job.name,
-            start,
-            end,
-        )
-        return []
 
     expanded_jobs: list[JobConfig] = []
 
@@ -441,7 +494,7 @@ def _expand_year_jobs(job: JobConfig) -> list[JobConfig]:
 
     return expanded_jobs
 
-def _expand_jobs(jobs: list[JobConfig]) -> list[JobConfig]:
+def _expand_jobs(jobs: list[JobConfig], cfg: ComtradeConfig) -> list[JobConfig]:    
     """
     Expand jobs in this order:
 
@@ -456,7 +509,7 @@ def _expand_jobs(jobs: list[JobConfig]) -> list[JobConfig]:
         cmd_jobs = _expand_cmd_code_jobs(job)
 
         for cmd_job in cmd_jobs:
-            expanded.extend(_expand_year_jobs(cmd_job))
+            expanded.extend(_expand_year_jobs(cmd_job, cfg=cfg))
 
     return expanded
 
@@ -550,7 +603,15 @@ def run_bulk_downloads(cfg: ComtradeConfig,
 
     manifest_rows: list[dict[str, Any]] = []
 
-    jobs = _expand_jobs(cfg.bulk.jobs)
+    try:
+        jobs = _expand_jobs(cfg.bulk.jobs, cfg)
+    except ConfigValidationError:
+        raise
+    except Exception as exc:
+        raise ConfigValidationError(
+            "Failed to expand bulk jobs while preparing the run summary. "
+            "Check year ranges, cmdCode values, and reference year settings."
+        ) from exc
 
     for idx, job in enumerate(jobs, start=1):
         logger.info("[bulk] Job %d/%d START: %s", idx, len(jobs), job.name)
@@ -742,7 +803,15 @@ def run_single_downloads(cfg: ComtradeConfig,
     logger.info("[single] Output directory: %s", rel_path(output_dir))
     logger.info("[single] Manifest path: %s", rel_path(manifest_path))
 
-    jobs = _expand_jobs(cfg.single.jobs)
+    try:
+        jobs = _expand_jobs(cfg.single.jobs, cfg)
+    except ConfigValidationError:
+        raise
+    except Exception as exc:
+        raise ConfigValidationError(
+            "Failed to expand single jobs while preparing the run summary. "
+            "Check year ranges, cmdCode values, and reference year settings."
+        ) from exc
 
     # Start conservatively. Increase later if stable.
     max_workers = max(1, int(cfg.runtime.max_workers))
@@ -894,7 +963,7 @@ def log_run_configuration(
         #logger.info("  manifest latest:  %s", cfg.single.output.manifest_latest_file)
         logger.info("  jobs:             %d", len(cfg.single.jobs))
 
-        expanded_jobs = _expand_jobs(cfg.single.jobs)
+        expanded_jobs = _expand_jobs(cfg.single.jobs, cfg=cfg)
         logger.info("  expanded jobs:    %d", len(expanded_jobs))
 
         for idx, job in enumerate(cfg.single.jobs, start=1):
@@ -980,6 +1049,7 @@ def run_comtrade_download_pipeline(
 
     ## Validate the full resolved configuration for transparency and debugging.
     validate_comtrade_config(cfg)
+    _validate_job_expansion(cfg)
 
     log_run_configuration(
         cfg=cfg,

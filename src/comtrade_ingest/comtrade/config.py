@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
+from dataclasses import dataclass, field
 from comtrade_ingest.comtrade.api import (
     AuthConfig,
     DownloadRuntimeConfig,
@@ -49,6 +49,11 @@ class ModeConfig:
     jobs: list[JobConfig]
     output: OutputConfig
 
+@dataclass
+class ValidationConfig:
+    min_comtrade_year: int = 1962
+    max_future_year_offset: int = 1
+    max_expanded_years_per_job: int = 200
 
 @dataclass
 class ComtradeConfig:
@@ -63,6 +68,8 @@ class ComtradeConfig:
     log_level: str
     log_file: str | None
     paths: dict[str, str]
+    validation: ValidationConfig = field(default_factory=ValidationConfig)
+
 
 
 def _resolve_path_templates(raw: dict[str, Any]) -> dict[str, Any]:
@@ -324,6 +331,10 @@ def load_comtrade_config(path: Path) -> ComtradeConfig:
     raw = load_yaml(path)
     raw = _resolve_path_templates(raw)
 
+    validation_cfg = raw.get("validation", {})
+    if not isinstance(validation_cfg, dict):
+        validation_cfg = {}
+
     endpoint_cfg = raw.get("endpoint", {})
     if not isinstance(endpoint_cfg, dict):
         raise ValueError("endpoint must be a mapping with single, single_fallbacks, bulk")
@@ -410,6 +421,12 @@ def load_comtrade_config(path: Path) -> ComtradeConfig:
         log_level=str(raw.get("log_level", "INFO")),
         log_file=raw.get("log_file"),
         paths=raw.get("paths", {}),
+        validation=ValidationConfig(
+            min_comtrade_year=int(validation_cfg.get("min_comtrade_year", 1962)),
+            max_future_year_offset=int(validation_cfg.get("max_future_year_offset", 1)),
+            max_expanded_years_per_job=int(
+            validation_cfg.get("max_expanded_years_per_job", 200)
+        ),)
     )
 
     if cfg.single.enabled and not cfg.endpoint.single:

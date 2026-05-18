@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from comtrade_ingest.comtrade.errors import ComtradeIngestError, print_cli_error
 from comtrade_ingest.comtrade.pipeline import run_comtrade_download_pipeline
 from comtrade_ingest.io.paths import get_project_root
 
@@ -37,7 +38,6 @@ def main() -> None:
     parser.add_argument(
         "--yes",
         action="store_true",
-        default=False,
         help="Run without interactive confirmation.",
     )
 
@@ -45,11 +45,29 @@ def main() -> None:
 
     config_path = args.config or get_project_root() / "configs" / "comtrade.yaml"
 
-    if args.command == "run":
-        run_comtrade_download_pipeline(
-            config_path=config_path,
-            confirm=not args.yes,
-        )
+    try:
+        if args.command == "run":
+            run_comtrade_download_pipeline(
+                config_path=config_path,
+                confirm=not args.yes,
+            )
+            
+    except ComtradeIngestError as exc:
+        print_cli_error(
+        title="COMTRADE-INGEST PIPELINE STOPPED",
+        reason=str(exc),)
+        raise SystemExit(1)
+
+    except KeyboardInterrupt:
+        print("")
+        print("Pipeline stopped by user.")
+        raise SystemExit(130)
+
+    except Exception as exc:
+        print("")
+        print("ERROR: Comtrade download pipeline failed unexpectedly.")
+        print(f"Reason: {exc}")
+        raise SystemExit(1) from exc
 
 
 if __name__ == "__main__":

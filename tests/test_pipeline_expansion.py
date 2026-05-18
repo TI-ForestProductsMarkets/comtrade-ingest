@@ -5,12 +5,9 @@ from comtrade_ingest.comtrade.pipeline import _expand_jobs
 from comtrade_ingest.comtrade.pipeline import _format_output_file
 from comtrade_ingest.comtrade.manifest import quarantine_invalid_outputs
 from comtrade_ingest.comtrade.pipeline import _handle_existing_output
-from types import SimpleNamespace
-
-from types import SimpleNamespace
-
-from comtrade_ingest.comtrade.config import JobConfig
 from comtrade_ingest.comtrade.pipeline import _download_single_job
+from types import SimpleNamespace
+from conftest import create_test_config
 
 
 def test_download_single_job_empty_payload_returns_no_data(tmp_path, monkeypatch):
@@ -80,6 +77,7 @@ def test_download_single_job_empty_payload_returns_no_data(tmp_path, monkeypatch
     assert not output_path.exists()
 
 def test_expand_jobs_expands_cmd_code_list_and_year_range() -> None:
+    cfg = create_test_config()
     job = JobConfig(
         name="wood_panel",
         params={"cmdCode": ["441012", "441011"]},
@@ -88,7 +86,7 @@ def test_expand_jobs_expands_cmd_code_list_and_year_range() -> None:
         all_years_end=2025,
     )
 
-    jobs = _expand_jobs([job])
+    jobs = _expand_jobs([job], cfg)
 
     assert len(jobs) == 4
 
@@ -103,6 +101,7 @@ def test_expand_jobs_expands_cmd_code_list_and_year_range() -> None:
 
 
 def test_expand_jobs_converts_single_item_cmd_code_list_to_scalar() -> None:
+    cfg = create_test_config()
     job = JobConfig(
         name="wood_panel",
         params={"cmdCode": ["441012"]},
@@ -111,7 +110,7 @@ def test_expand_jobs_converts_single_item_cmd_code_list_to_scalar() -> None:
         all_years_end=2024,
     )
 
-    jobs = _expand_jobs([job])
+    jobs = _expand_jobs([job], cfg)
 
     assert len(jobs) == 1
     assert jobs[0].params["cmdCode"] == "441012"

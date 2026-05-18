@@ -121,6 +121,15 @@ runtime:
 
 
 # -------------------------------------------
+# VALIDATION LIMITS
+# -------------------------------------------
+
+validation:
+  min_comtrade_year: 1962
+  max_future_year_offset: 0
+  max_expanded_years_per_job: 200
+
+# -------------------------------------------
 # DEFAULT DATA API PARAMETERS
 # -------------------------------------------
 
