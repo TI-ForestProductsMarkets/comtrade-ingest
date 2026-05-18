@@ -1,6 +1,6 @@
 
 """
-Data loading utilities for the vacoda pipeline.
+Data loading utilities for the comtrade_ingest pipeline.
 Loads raw data from CSV files and metadata from parquet files.
 All paths are controlled by configs/paths.yaml.
 """
@@ -8,15 +8,15 @@ All paths are controlled by configs/paths.yaml.
 from pathlib import Path
 import pandas as pd
 import yaml
-from vacoda.io.paths import (
+from comtrade_ingest.io.paths import (
     get_api_data_dir,
     get_raw_data_dir,
     get_rawdata_file_path,
     CONFIG_PATH,
     resolve_path
 )
-from vacoda.utils.decorators import require_file
-from vacoda.utils.logger import get_logger, rel_path
+from comtrade_ingest.utils.decorators import require_file
+from comtrade_ingest.utils.logger import get_logger, rel_path
 
 logger = get_logger("IO.LOADERS")
 _config_cache = None
@@ -78,7 +78,7 @@ def load_metadata_from_config() -> dict[str, pd.DataFrame]:
     Loads all metadata parquet files as specified in paths.yaml under metadata.
     Returns a dict of DataFrames keyed by metadata name.
     """
-    from vacoda.preprocessing.metadata import standardize_metadata_dtypes
+    from comtrade_ingest.preprocessing.metadata import standardize_metadata_dtypes
 
     cfg = load_config()
     meta_cfg = cfg.get("metadata", {})
@@ -161,7 +161,7 @@ def load_data_from_config(file_path: Path = None) -> pd.DataFrame:
         logger.info(f"[Config] Loading explicit file: {file_path}")
         return _read_csv_with_diagnostics(file_path)
     if mode == "per_file":
-        from vacoda.io.paths import get_rawdata_file_path
+        from comtrade_ingest.io.paths import get_rawdata_file_path
         csv_path = get_rawdata_file_path(source=source)
         logger.info(f"[Config] Loading single file for mode=per_file: {csv_path}")
         return _read_csv_with_diagnostics(csv_path)

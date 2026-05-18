@@ -4,7 +4,7 @@ This module provides functions for writing data to various file formats.
 from pathlib import Path
 import pandas as pd
 
-from vacoda.utils.logger import get_logger, rel_path
+from comtrade_ingest.utils.logger import get_logger, rel_path
 
 logger = get_logger("writer")
 

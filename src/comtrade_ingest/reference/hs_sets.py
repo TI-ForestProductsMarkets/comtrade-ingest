@@ -7,7 +7,7 @@ Use these as tokens in configs/comtrade.yaml, e.g.
 """
 
 from __future__ import annotations
-from vacoda.reference.cmdCode_dict import HS_VALID_YEARS as DEFAULT_HS_VALID_YEARS
+from comtrade_ingest.reference.cmdCode_dict import HS_VALID_YEARS as DEFAULT_HS_VALID_YEARS
 
 
 # Optional local override.

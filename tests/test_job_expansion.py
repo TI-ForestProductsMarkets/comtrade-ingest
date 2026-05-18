@@ -1,5 +1,5 @@
-from vacoda.comtrade.config import JobConfig
-from vacoda.comtrade.pipeline import _expand_year_jobs
+from comtrade_ingest.comtrade.config import JobConfig
+from comtrade_ingest.comtrade.pipeline import _expand_year_jobs
 
 
 def test_expand_year_jobs_with_explicit_years():
@@ -19,8 +19,8 @@ def test_expand_year_jobs_with_explicit_years():
 
 
 
-from vacoda.comtrade.config import JobConfig
-from vacoda.comtrade.pipeline import _expand_cmd_code_jobs
+from comtrade_ingest.comtrade.config import JobConfig
+from comtrade_ingest.comtrade.pipeline import _expand_cmd_code_jobs
 
 
 def test_expand_cmd_code_jobs():

@@ -1,5 +1,5 @@
 from pathlib import Path
-from vacoda.comtrade.config import load_comtrade_config
+from comtrade_ingest.comtrade.config import load_comtrade_config
 
 
 def test_load_config_explicit_years(tmp_path):

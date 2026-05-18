@@ -4,15 +4,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from vacoda.comtrade.api import (
+from comtrade_ingest.comtrade.api import (
     AuthConfig,
     DownloadRuntimeConfig,
     PaginationConfig,
     RetryConfig,
 )
-from vacoda.comtrade.utils import load_yaml
-from vacoda.reference import flow_sets, hs_sets
-from vacoda.utils.logger import get_logger
+from comtrade_ingest.comtrade.utils import load_yaml
+from comtrade_ingest.reference import flow_sets, hs_sets
+from comtrade_ingest.utils.logger import get_logger
 
 logger = get_logger("COMTRADE.CONFIG")
 
@@ -62,6 +62,76 @@ class ComtradeConfig:
     pagination: PaginationConfig
     log_level: str
     log_file: str | None
+
+
+
+def _resolve_path_templates(raw: dict[str, Any]) -> dict[str, Any]:
+    """
+    Resolve path templates in config.
+
+    Example:
+        paths:
+          root_dir: "/storage/test"
+          data_dir: "{root_dir}/data"
+          single_data_dir: "{data_dir}/single"
+
+        single.output.directory: "{single_data_dir}"
+
+    becomes:
+        single.output.directory: "/storage/test/data/single"
+    """
+    paths_cfg = raw.get("paths", {})
+
+    if paths_cfg is None:
+        paths_cfg = {}
+
+    if not isinstance(paths_cfg, dict):
+        raise ValueError("paths must be a mapping")
+
+    resolved_paths: dict[str, str] = {}
+
+    for key, value in paths_cfg.items():
+        if value is None:
+            continue
+
+        if not isinstance(value, str):
+            raise ValueError(
+                f"paths.{key} must be a string, got {type(value).__name__}"
+            )
+
+        try:
+            resolved_paths[key] = value.format(**resolved_paths)
+        except KeyError as exc:
+            missing = exc.args[0]
+            raise KeyError(
+                f"paths.{key} references unknown path template {{{missing}}}"
+            ) from exc
+
+    def resolve_value(value: Any) -> Any:
+        if isinstance(value, str):
+            try:
+                return value.format(**resolved_paths)
+            except KeyError as exc:
+                missing = exc.args[0]
+                raise KeyError(
+                    f"Config value {value!r} references unknown path template "
+                    f"{{{missing}}}"
+                ) from exc
+
+        if isinstance(value, list):
+            return [resolve_value(item) for item in value]
+
+        if isinstance(value, dict):
+            return {key: resolve_value(item) for key, item in value.items()}
+
+        return value
+
+    resolved_raw = resolve_value(raw)
+
+    if isinstance(resolved_raw, dict):
+        resolved_raw["paths"] = resolved_paths
+
+    return resolved_raw
 
 
 def _resolve_reference_token(value: Any) -> Any:
@@ -211,9 +281,9 @@ def _load_mode(
         output=_load_output(section_cfg, default_dir, default_manifest),
     )
 
-
 def load_comtrade_config(path: Path) -> ComtradeConfig:
     raw = load_yaml(path)
+    raw = _resolve_path_templates(raw)
 
     endpoint_cfg = raw.get("endpoint", {})
     if not isinstance(endpoint_cfg, dict):

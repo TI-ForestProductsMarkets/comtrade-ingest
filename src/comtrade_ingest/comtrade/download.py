@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from vacoda.reference import flow_sets
-from vacoda.reference import hs_sets
-from vacoda.comtrade.utils import get_bulk_manifest_path, _load_yaml
-from vacoda.comtrade.api import (
+from comtrade_ingest.reference import flow_sets
+from comtrade_ingest.reference import hs_sets
+from comtrade_ingest.comtrade.utils import get_bulk_manifest_path, _load_yaml
+from comtrade_ingest.comtrade.api import (
     AuthConfig,
     DownloadRuntimeConfig,
     PaginationConfig,
@@ -26,8 +26,8 @@ from vacoda.comtrade.api import (
     select_resolvable_endpoint,
     validate_auth_preflight,
 )
-from vacoda.io.paths import get_project_root, load_paths_config, resolve_path
-from vacoda.utils.logger import get_logger, rel_path
+from comtrade_ingest.io.paths import get_project_root, load_paths_config, resolve_path
+from comtrade_ingest.utils.logger import get_logger, rel_path
 
 logger = get_logger("COMTRADE.DOWNLOAD")
 
@@ -138,7 +138,7 @@ def run_comtrade_bulk_pipeline(
     """
     import time
 
-    from vacoda.comtrade.api import download_bulk
+    from comtrade_ingest.comtrade.api import download_bulk
 
     ## Load config and resolve paths
     project_root = get_project_root()

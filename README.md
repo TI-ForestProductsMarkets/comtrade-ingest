@@ -1,6 +1,6 @@
-# `vacoda.comtrade`
+# `comtrade_ingest`
 
-`vacoda.comtrade` provides a configuration-driven download pipeline for UN Comtrade data.
+`comtrade_ingest` provides a configuration-driven download pipeline for UN Comtrade data.
 
 It supports two acquisition modes:
 
@@ -33,7 +33,7 @@ The package includes:
 ## Package structure
 
 ```bash
-src/vacoda/comtrade/
+src/comtrade_ingest/comtrade/
 ├── __init__.py
 ├── README.md
 ├── api.py
@@ -45,7 +45,7 @@ src/vacoda/comtrade/
 ```
 ### Related reference files:
 ```bash
-src/vacoda/reference/
+src/comtrade_ingest/reference/
 ├── hs_sets.py
 ├── flow_sets.py
 └── hs_version_set.py

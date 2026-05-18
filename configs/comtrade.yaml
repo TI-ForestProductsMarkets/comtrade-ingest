@@ -1,4 +1,4 @@
-# Comtrade download config
+# Comtrade Ingest config
 # Docs: https://comtradedeveloper.un.org/api-details
 # Subscription plans: https://uncomtrade.org/docs/subscriptions/
 
@@ -7,9 +7,55 @@
 # COMTRADE_API_KEY=your_key_here
 
 # Token tips:
-# - cmdCode can use token names from src/vacoda/reference/hs_sets.py
-# - flowCode can use token names from src/vacoda/reference/flow_sets.py
+# - cmdCode can use token names from src/comtrade_ingest/reference/hs_sets.py
+# - flowCode can use token names from src/comtrade_ingest/reference/flow_sets.py
 
+
+# -------------------------------------------
+# PATHS
+# -------------------------------------------
+# ROOT_DIR this is the only path a new user needs to change.
+
+paths:
+  root_dir: "/storage/test"
+
+  data_dir: "{root_dir}/data"
+  single_data_dir: "{data_dir}/single"
+  bulk_data_dir: "{data_dir}/bulk"
+
+  output_dir: "{root_dir}/output"
+  logs_dir: "{output_dir}/logs"
+  manifest_dir: "{output_dir}/manifest"
+  reports_dir: "{output_dir}/reports"
+  quarantine_dir: "{reports_dir}/_quarantine_zero_byte"
+
+# -------------------------------------------
+# Single DATA API DOWNLOADS
+# -------------------------------------------
+# Single API downloads precise query results.
+# Recommended job unit:
+# one commodity group × one year or generated year loop.
+
+single:
+  enabled: true
+
+  jobs:
+    - name: "wood_panel_direct"
+      params:
+        reporterCode:
+        partnerCode:
+        cmdCode: "WOOD_PANEL"
+        flowCode: "FLOW_ALL"
+
+      output_file: "comtrade_{cmdCode}_{period}.csv"
+      use_reference_years: true
+      fallback_years_start: 1989
+      fallback_years_end: 2025
+
+  output:
+    directory: "{single_data_dir}"
+    quarantine_directory: "{quarantine_dir}"
+    manifest_file: "{manifest_dir}/download_manifest_single.json"
 
 # -------------------------------------------
 # BULK API DOWNLOADS
@@ -35,47 +81,12 @@ bulk:
         start: 2024
         end: 2025
 
-      # Applied locally after bulk files are downloaded and parsed.
-      local_filter:
-        cmdCode: "WOOD_PANEL"
-        flowCode: "FLOW_ALL"
-
       output_file: "Comtrade_bulk_HS_{period}_all_reporters.zip"
 
   output:
-    directory: "/data/comtrade/data/raw/api/bulk"
-    quarantine_directory: "/data/comtrade/data/raw/api/bulk/_quarantine_zero_byte"
-    manifest_file: "download_manifest_bulk.json"
-
-
-# -------------------------------------------
-# NORMAL DATA API DOWNLOADS
-# -------------------------------------------
-# Normal API downloads precise query results.
-# Recommended job unit:
-# one commodity group × one year or generated year loop.
-
-single:
-  enabled: true
-
-  jobs:
-    - name: "wood_panel_direct"
-      params:
-        reporterCode:
-        partnerCode:
-        cmdCode: "WOOD_PANEL"
-        flowCode: "FLOW_ALL"
-
-      output_file: "comtrade_{cmdCode}_{period}.csv"
-      use_reference_years: true
-      fallback_years_start: 1989
-      fallback_years_end: 2025
-
-  output:
-    directory: "/data/comtrade/data/raw/api/test/"
-    quarantine_directory: "/data/comtrade/data/raw/api/test/_quarantine_zero_byte"
-    manifest_file: "download_manifest_single.json"
-
+    directory: "{bulk_data_dir}"
+    quarantine_directory: "{quarantine_dir}"
+    manifest_file: "{manifest_dir}/download_manifest_bulk.json"
 
 
 # -------------------------------------------
@@ -83,7 +94,7 @@ single:
 # -------------------------------------------
 
 log_level: DEBUG # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
-log_file: output/reports/LOG_API_PIPELINE.log
+log_file: "{logs_dir}/LOG_API_PIPELINE.log"
 
 
 
@@ -98,9 +109,9 @@ retry:
   max_attempts: 3
   backoff_seconds: 2.0
   rate_limit:
-    max_attempts: 0
-    buffer_seconds: 0
-    fallback_wait_seconds: 0
+    max_attempts: 5
+    buffer_seconds: 5
+    fallback_wait_seconds: 60
 
 runtime:
   show_progress: true

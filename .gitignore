@@ -33,6 +33,7 @@ site/
 *.egg
 *.egg-info/
 pip-wheel-metadata/
+*.code-workspace
 
 # Coverage and test output
 .coverage

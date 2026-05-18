@@ -1,16 +1,16 @@
 import pytest
 
-from vacoda.comtrade.config import JobConfig
-from vacoda.comtrade.pipeline import _expand_jobs
-from vacoda.comtrade.pipeline import _format_output_file
-from vacoda.comtrade.manifest import quarantine_invalid_outputs
-from vacoda.comtrade.pipeline import _handle_existing_output
+from comtrade_ingest.comtrade.config import JobConfig
+from comtrade_ingest.comtrade.pipeline import _expand_jobs
+from comtrade_ingest.comtrade.pipeline import _format_output_file
+from comtrade_ingest.comtrade.manifest import quarantine_invalid_outputs
+from comtrade_ingest.comtrade.pipeline import _handle_existing_output
 from types import SimpleNamespace
 
 from types import SimpleNamespace
 
-from vacoda.comtrade.config import JobConfig
-from vacoda.comtrade.pipeline import _download_single_job
+from comtrade_ingest.comtrade.config import JobConfig
+from comtrade_ingest.comtrade.pipeline import _download_single_job
 
 
 def test_download_single_job_empty_payload_returns_no_data(tmp_path, monkeypatch):
@@ -34,19 +34,19 @@ def test_download_single_job_empty_payload_returns_no_data(tmp_path, monkeypatch
         return b"", ["https://example.test/redacted"], 0
 
     monkeypatch.setattr(
-        "vacoda.comtrade.pipeline.build_query_params",
+        "comtrade_ingest.comtrade.pipeline.build_query_params",
         fake_build_query_params,
     )
     monkeypatch.setattr(
-        "vacoda.comtrade.pipeline.build_auth_headers",
+        "comtrade_ingest.comtrade.pipeline.build_auth_headers",
         fake_build_auth_headers,
     )
     monkeypatch.setattr(
-        "vacoda.comtrade.pipeline.is_csv_format",
+        "comtrade_ingest.comtrade.pipeline.is_csv_format",
         fake_is_csv_format,
     )
     monkeypatch.setattr(
-        "vacoda.comtrade.pipeline.download_paginated_csv",
+        "comtrade_ingest.comtrade.pipeline.download_paginated_csv",
         fake_download_paginated_csv,
     )
 
@@ -262,10 +262,10 @@ def test_download_single_job_empty_payload_even_without_row_count_returns_no_dat
     ):
         return b"", ["https://example.test/redacted"], None
 
-    monkeypatch.setattr("vacoda.comtrade.pipeline.build_query_params", fake_build_query_params)
-    monkeypatch.setattr("vacoda.comtrade.pipeline.build_auth_headers", fake_build_auth_headers)
-    monkeypatch.setattr("vacoda.comtrade.pipeline.is_csv_format", fake_is_csv_format)
-    monkeypatch.setattr("vacoda.comtrade.pipeline.download_paginated_csv", fake_download_paginated_csv)
+    monkeypatch.setattr("comtrade_ingest.comtrade.pipeline.build_query_params", fake_build_query_params)
+    monkeypatch.setattr("comtrade_ingest.comtrade.pipeline.build_auth_headers", fake_build_auth_headers)
+    monkeypatch.setattr("comtrade_ingest.comtrade.pipeline.is_csv_format", fake_is_csv_format)
+    monkeypatch.setattr("comtrade_ingest.comtrade.pipeline.download_paginated_csv", fake_download_paginated_csv)
 
     cfg = SimpleNamespace(
         default_params={"format": "csv"},
@@ -318,10 +318,10 @@ def test_download_single_job_non_empty_payload_writes_file(tmp_path, monkeypatch
         )
         return payload, ["https://example.test/redacted"], 1
 
-    monkeypatch.setattr("vacoda.comtrade.pipeline.build_query_params", fake_build_query_params)
-    monkeypatch.setattr("vacoda.comtrade.pipeline.build_auth_headers", fake_build_auth_headers)
-    monkeypatch.setattr("vacoda.comtrade.pipeline.is_csv_format", fake_is_csv_format)
-    monkeypatch.setattr("vacoda.comtrade.pipeline.download_paginated_csv", fake_download_paginated_csv)
+    monkeypatch.setattr("comtrade_ingest.comtrade.pipeline.build_query_params", fake_build_query_params)
+    monkeypatch.setattr("comtrade_ingest.comtrade.pipeline.build_auth_headers", fake_build_auth_headers)
+    monkeypatch.setattr("comtrade_ingest.comtrade.pipeline.is_csv_format", fake_is_csv_format)
+    monkeypatch.setattr("comtrade_ingest.comtrade.pipeline.download_paginated_csv", fake_download_paginated_csv)
 
     cfg = SimpleNamespace(
         default_params={"format": "csv"},

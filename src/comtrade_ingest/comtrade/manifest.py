@@ -1,5 +1,5 @@
 """
-vacoda.comtrade.manifest
+comtrade_ingest.comtrade.manifest
 
 Utilities for reading, writing, and auditing Comtrade download manifests.
 """
@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 import pandas as pd
-from vacoda.utils.logger import get_logger, rel_path
+from comtrade_ingest.utils.logger import get_logger, rel_path
 
 logger = get_logger("COMTRADE.MANIFEST")
 

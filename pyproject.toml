@@ -1,0 +1,35 @@
+[project]
+name = "comtrade-ingest"
+version = "0.1.0"
+description = "Config-driven downloader and staging pipeline for UN Comtrade data."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Pooja Saxena", email = "nrjrasaxena@gmail.com" }
+]
+dependencies = [
+    "pandas",
+    "requests",
+    "pyyaml",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[project.scripts]
+comtrade-ingest = "comtrade_ingest.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

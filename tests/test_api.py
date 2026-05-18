@@ -27,7 +27,7 @@ if ENV_FILE.exists():
     reason="COMTRADE_API_KEY not set",
 )
 def test_live_small_comtrade_query():
-    from vacoda.comtrade.api import ComtradeAPIClient
+    from comtrade_ingest.comtrade.api import ComtradeAPIClient
 
     client = ComtradeAPIClient()
 

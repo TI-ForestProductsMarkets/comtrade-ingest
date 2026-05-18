@@ -1,5 +1,5 @@
 """
-/vacoda/src/vacoda/comtrade/api.py
+/comtrade_ingest/src/comtrade_ingest/comtrade/api.py
 Core API interaction logic for downloading data from the comtrade API, including 
 authentication handling, pagination, retries, and CSV merging.
 """
@@ -20,8 +20,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 import zipfile
 
-from vacoda.io.paths import resolve_path
-from vacoda.utils.logger import get_logger, rel_path
+from comtrade_ingest.io.paths import resolve_path
+from comtrade_ingest.utils.logger import get_logger, rel_path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = get_logger("COMTRADE.API")
@@ -323,7 +323,7 @@ def _parse_bulk_index_items(payload: bytes) -> list[dict[str, Any]]:
     return [item for item in items if isinstance(item, dict)]
 
 def build_auth_headers(auth: AuthConfig) -> dict[str, str]:
-    headers = {"User-Agent": "vacoda-downloader/1.0"}
+    headers = {"User-Agent": "comtrade_ingest/1.0"}
     if not auth.enabled:
         return headers
 
@@ -337,7 +337,7 @@ def build_auth_headers(auth: AuthConfig) -> dict[str, str]:
 
 
 def download_once(url: str, timeout_seconds: int, headers: dict[str, str] | None = None) -> bytes:
-    request = Request(url, headers=headers or {"User-Agent": "vacoda-downloader/1.0"})
+    request = Request(url, headers=headers or {"User-Agent": "comtrade_ingest/1.0"})
     with urlopen(request, timeout=timeout_seconds) as response:
         return response.read()
 

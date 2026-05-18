@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from vacoda.comtrade.manifest import summarize_manifest
-from vacoda.comtrade.manifest import summarize_manifest
-from vacoda.comtrade.manifest import find_invalid_manifest_rows
-from vacoda.comtrade.manifest import validate_output_file
+from comtrade_ingest.comtrade.manifest import summarize_manifest
+from comtrade_ingest.comtrade.manifest import summarize_manifest
+from comtrade_ingest.comtrade.manifest import find_invalid_manifest_rows
+from comtrade_ingest.comtrade.manifest import validate_output_file
 
 
 def test_summarize_manifest_counts_single_rows(tmp_path: Path) -> None:

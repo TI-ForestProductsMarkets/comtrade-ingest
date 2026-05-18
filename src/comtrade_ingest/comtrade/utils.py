@@ -10,8 +10,8 @@ from typing import Any
 
 import yaml
 
-from vacoda.io.paths import resolve_path
-from vacoda.utils.logger import get_logger
+from comtrade_ingest.io.paths import resolve_path
+from comtrade_ingest.utils.logger import get_logger
 
 logger = get_logger("COMTRADE.UTILS")
 

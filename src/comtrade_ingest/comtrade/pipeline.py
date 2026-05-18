@@ -1,5 +1,5 @@
 """
-vacoda.comtrade.pipeline
+comtrade_ingest.comtrade.pipeline
 
 Clean Comtrade download pipeline.
 
@@ -26,7 +26,7 @@ from urllib.parse import urlencode
 
 from click import confirm
 
-from vacoda.comtrade.api import (
+from comtrade_ingest.comtrade.api import (
     build_auth_headers,
     build_query_params,
     detect_auth_error_in_payload,
@@ -39,11 +39,12 @@ from vacoda.comtrade.api import (
     validate_auth_preflight,
     RateLimitExceededError,
 )
-from vacoda.comtrade.config import ComtradeConfig, JobConfig, ModeConfig, load_comtrade_config
-from vacoda.io.paths import get_project_root, resolve_path
-from vacoda.utils.logger import get_logger, rel_path
-from vacoda.reference.hs_sets import get_hs_valid_year_range
-from vacoda.comtrade.manifest import (
+from comtrade_ingest.io.paths import ensure_comtrade_runtime_directories
+from comtrade_ingest.comtrade.config import ComtradeConfig, JobConfig, ModeConfig, load_comtrade_config
+from comtrade_ingest.io.paths import get_project_root, resolve_path
+from comtrade_ingest.utils.logger import get_logger, rel_path
+from comtrade_ingest.reference.hs_sets import get_hs_valid_year_range
+from comtrade_ingest.comtrade.manifest import (
     audit_manifest_file,
     find_invalid_manifest_rows,
     load_manifest,
@@ -51,7 +52,7 @@ from vacoda.comtrade.manifest import (
     write_manifest,
     validate_output_file
 )
-from vacoda.utils.progress import progress_bar
+from comtrade_ingest.utils.progress import progress_bar
 ## Set up a module-level logger
 logger = get_logger("COMTRADE.PIPELINE")
 
@@ -681,7 +682,7 @@ def log_run_configuration(
     log_path: Path | None,
 ) -> None:
     logger.info("=" * 72)
-    logger.info("VACODA COMTRADE DOWNLOAD PIPELINE")
+    logger.info("COMTRADE_INGEST DOWNLOAD PIPELINE")
     logger.info("=" * 72)
 
     logger.info("Config file:        %s", rel_path(config_path))
@@ -779,6 +780,8 @@ def run_comtrade_download_pipeline(
     _log_step(1, total_step, pipeline_steps[0])
     logger.info("Using Comtrade config: %s", rel_path(resolved_config_path))
     cfg = load_comtrade_config(resolved_config_path)
+    logger.info("Ensuring Comtrade runtime directories exist.")
+    ensure_comtrade_runtime_directories(cfg)
 
     log_run_configuration(
         cfg=cfg,
