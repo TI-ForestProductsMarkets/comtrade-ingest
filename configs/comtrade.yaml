@@ -107,8 +107,8 @@ retry:
   backoff_seconds: 2.0
   rate_limit:
     max_attempts: 5
-    buffer_seconds: 5
-    fallback_wait_seconds: 60
+    buffer_seconds: 1.0
+    fallback_wait_seconds: 60.0
 
 runtime:
   show_progress: true

@@ -346,7 +346,13 @@ def find_invalid_manifest_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any
             path = Path(raw_path)
             valid, reason, size = validate_output_file(path)
 
-            if not valid and status in {"downloaded", "skipped", "skipped_existing"}:
+            if not valid and status in {
+                "downloaded",
+                "skipped",
+                "skipped_existing",
+                "invalid_existing",
+                "skipped_invalid_existing",
+            }:
                 bad_row = dict(row)
                 bad_row["validation_status"] = reason
                 bad_row["file_size_bytes"] = size
@@ -357,12 +363,15 @@ def find_invalid_manifest_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any
 
 def quarantine_invalid_outputs(
     invalid_rows: list[dict[str, Any]],
-    quarantine_dir: Path,
+    quarantine_dir: Path | None,
 ) -> int:
     """Move invalid output files to a quarantine directory.
 
     Returns the number of files moved.
     """
+    if quarantine_dir is None:
+        return 0
+
     quarantine_dir.mkdir(parents=True, exist_ok=True)
     moved = 0
 
@@ -383,9 +392,12 @@ def quarantine_invalid_outputs(
             if not path.exists():
                 continue
 
-            if path.stat().st_size == 0:
-                target = quarantine_dir / path.name
-                path.replace(target)
-                moved += 1
+            valid, _, _ = validate_output_file(path)
+            if valid:
+                continue
+
+            target = quarantine_dir / path.name
+            path.replace(target)
+            moved += 1
 
     return moved

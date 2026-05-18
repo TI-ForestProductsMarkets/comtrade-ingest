@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+import json
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -97,9 +98,11 @@ def _mode_output_dir(mode_cfg: ModeConfig) -> Path:
 def _mode_manifest_path(mode_cfg: ModeConfig) -> Path:
     return resolve_path(mode_cfg.output.manifest_file)
 
-def _mode_quarantine_dir(mode_cfg: ModeConfig) -> Path:
+def _mode_quarantine_dir(mode_cfg: ModeConfig) -> Path | None:
     if mode_cfg.output.quarantine_file:
         return resolve_path(mode_cfg.output.quarantine_file).parent
+
+    return None
 
 def write_quarantine_report(
     rows: list[dict[str, Any]],
@@ -113,7 +116,65 @@ def write_quarantine_report(
 
     with p.open("w", encoding="utf-8") as file:
         json.dump(rows, file, indent=2)
-        
+
+
+def _build_quarantine_report_rows(
+    rows: list[dict[str, Any]],
+    *,
+    policy: str,
+    action: str,
+) -> list[dict[str, Any]]:
+    report_rows: list[dict[str, Any]] = []
+
+    for row in rows:
+        report_row = dict(row)
+        report_row["policy"] = policy
+        report_row["action"] = action
+        report_rows.append(report_row)
+
+    return report_rows
+
+
+def _process_invalid_rows_for_mode(
+    *,
+    invalid_rows: list[dict[str, Any]],
+    mode_cfg: ModeConfig,
+    mode_name: str,
+    policy: str,
+    timestamped_report_path: Path | None,
+    latest_report_path: Path | None,
+) -> None:
+    if not invalid_rows:
+        return
+
+    action = "reported_only"
+
+    if policy == "redownload":
+        quarantine_dir = _mode_quarantine_dir(mode_cfg)
+        moved = quarantine_invalid_outputs(invalid_rows, quarantine_dir)
+        action = "moved_to_quarantine"
+
+        if quarantine_dir is not None:
+            logger.warning(
+                "Moved %d invalid %s output files to quarantine: %s",
+                moved,
+                mode_name,
+                rel_path(quarantine_dir),
+            )
+        else:
+            logger.warning(
+                "Policy=redownload but %s.quarantine_file is not configured; no files were moved.",
+                mode_name,
+            )
+
+    report_rows = _build_quarantine_report_rows(
+        invalid_rows,
+        policy=policy,
+        action=action,
+    )
+    write_quarantine_report(report_rows, timestamped_report_path)
+    write_quarantine_report(report_rows, latest_report_path)
+
 def _format_output_file(template: str, params: dict[str, Any]) -> str:
     """
     Format output file names such as:
@@ -960,16 +1021,14 @@ def run_comtrade_download_pipeline(
         if invalid_bulk_rows:
             logger.warning("Found %d invalid bulk manifest rows.", len(invalid_bulk_rows))
 
-            if cfg.runtime.existing_file_policy == "redownload":
-                moved = quarantine_invalid_outputs(
-                invalid_bulk_rows,
-                _mode_quarantine_dir(cfg.bulk),
+            _process_invalid_rows_for_mode(
+                invalid_rows=invalid_bulk_rows,
+                mode_cfg=cfg.bulk,
+                mode_name="bulk",
+                policy=cfg.runtime.existing_file_policy,
+                timestamped_report_path=run_context.bulk_quarantine_path,
+                latest_report_path=run_context.bulk_quarantine_latest_path,
             )
-                logger.warning(
-                    "Moved %d invalid bulk output files to quarantine: %s",
-                    moved,
-                    rel_path(_mode_quarantine_dir(cfg.bulk)),
-                )
 
     if cfg.single.enabled:
         single_manifest_path = _require_path(
@@ -984,16 +1043,14 @@ def run_comtrade_download_pipeline(
         if invalid_single_rows:
             logger.warning("Found %d invalid single manifest rows.", len(invalid_single_rows))
 
-            if cfg.runtime.existing_file_policy == "redownload":
-                moved = quarantine_invalid_outputs(
-                    invalid_single_rows,
-                    _mode_quarantine_dir(cfg.single),
-                )
-                logger.warning(
-                    "Moved %d invalid single output files to quarantine: %s",
-                    moved,
-                    rel_path(_mode_quarantine_dir(cfg.single)),
-                )
+            _process_invalid_rows_for_mode(
+                invalid_rows=invalid_single_rows,
+                mode_cfg=cfg.single,
+                mode_name="single",
+                policy=cfg.runtime.existing_file_policy,
+                timestamped_report_path=run_context.single_quarantine_path,
+                latest_report_path=run_context.single_quarantine_latest_path,
+            )
 
     if invalid_rows_all:
         if cfg.runtime.existing_file_policy == "fail":
