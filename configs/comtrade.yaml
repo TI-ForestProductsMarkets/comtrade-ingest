@@ -61,7 +61,7 @@ single:
 # -------------------------------------------
 
 bulk:
-  enabled: false
+  enabled: true
 
   jobs:
     - name: "hs_all_reporters"
@@ -74,7 +74,7 @@ bulk:
 
       # year-range
       years:
-        enabled: true
+        enabled: false
         start: 2021
         end: 2022
 
