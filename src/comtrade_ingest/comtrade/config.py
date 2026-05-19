@@ -183,6 +183,47 @@ def _resolve_params(params: dict[str, Any]) -> dict[str, Any]:
 
     return resolved
 
+def _validate_fallback_years_for_job(
+    *,
+    section_name: str,
+    idx: int,
+    job_name: str,
+    use_reference_years: bool,
+    years_enabled: bool,
+    fallback_years_start: int | None,
+    fallback_years_end: int | None,
+) -> None:
+    if fallback_years_start is None and fallback_years_end is not None:
+        raise ValueError(
+            f"{section_name}.jobs[{idx}] {job_name!r} has fallback_years_end "
+            "but no fallback_years_start. Please provide both."
+        )
+
+    if fallback_years_start is not None and fallback_years_end is None:
+        raise ValueError(
+            f"{section_name}.jobs[{idx}] {job_name!r} has fallback_years_start "
+            "but no fallback_years_end. Please provide both."
+        )
+
+    if fallback_years_start is not None and fallback_years_end is not None:
+        if fallback_years_start > fallback_years_end:
+            raise ValueError(
+                f"{section_name}.jobs[{idx}] {job_name!r} has invalid fallback years: "
+                f"fallback_years_start={fallback_years_start} is greater than "
+                f"fallback_years_end={fallback_years_end}."
+            )
+
+    if not use_reference_years and not years_enabled:
+        if fallback_years_start is None or fallback_years_end is None:
+            raise ValueError(
+                f"{section_name}.jobs[{idx}] {job_name!r} has use_reference_years=false, "
+                "so fallback_years_start and fallback_years_end are required.\n\n"
+                "Example:\n"
+                "  use_reference_years: false\n"
+                "  fallback_years_start: 2020\n"
+                "  fallback_years_end: 2021"
+            )
+
 
 def _load_jobs(section_name: str, section_cfg: dict[str, Any]) -> list[JobConfig]:
     raw_jobs = section_cfg.get("jobs", [])
@@ -253,6 +294,21 @@ def _load_jobs(section_name: str, section_cfg: dict[str, Any]) -> list[JobConfig
                     f"{section_name}.jobs[{idx}].years.start "
                     f"({all_years_start}) is greater than years.end ({all_years_end})"
                 )
+        
+        fallback_years_start = _parse_optional_int(raw_job.get("fallback_years_start"),
+                                                    field_name=f"{section_name}.jobs[{idx}].fallback_years_start",)
+
+        fallback_years_end = _parse_optional_int(raw_job.get("fallback_years_end"),
+                                                field_name=f"{section_name}.jobs[{idx}].fallback_years_end",)
+
+        _validate_fallback_years_for_job(
+                    section_name=section_name,
+                    idx=idx,
+                    job_name=name,
+                    use_reference_years=use_reference_years,
+                    years_enabled=years_enabled,
+                    fallback_years_start=fallback_years_start,
+                    fallback_years_end=fallback_years_end)
 
         jobs.append(
             JobConfig(
@@ -267,12 +323,39 @@ def _load_jobs(section_name: str, section_cfg: dict[str, Any]) -> list[JobConfig
                 all_years_start=all_years_start,
                 all_years_end=all_years_end,
                 use_reference_years=use_reference_years,
-                fallback_years_start=int(raw_job.get("fallback_years_start", 1990)),
-                fallback_years_end=int(raw_job.get("fallback_years_end", 2025)),
+                fallback_years_start=_parse_optional_int(
+                    raw_job.get("fallback_years_start"),
+                    field_name=f"{section_name}.jobs[{idx}].fallback_years_start",
+                ),
+                fallback_years_end=_parse_optional_int(
+                    raw_job.get("fallback_years_end"),
+                    field_name=f"{section_name}.jobs[{idx}].fallback_years_end",
+),
             )
         )
 
     return jobs
+
+def _parse_optional_int(value: Any, *, field_name: str) -> int | None:
+    """
+    Parse an optional integer field.
+
+    Empty YAML values become None, and should stay None so that
+    validation can produce a clear, contextual error later.
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, str) and value.strip() == "":
+        return None
+
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{field_name} must be an integer. "
+            f"Got {value!r}."
+        ) from exc
 
 def _parse_bool(value: Any, *, field_name: str) -> bool:
     if isinstance(value, bool):

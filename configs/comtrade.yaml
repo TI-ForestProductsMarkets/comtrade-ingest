@@ -47,9 +47,10 @@ single:
         flowCode: "FLOW_ALL"
 
       output_file: "comtrade_{cmdCode}_{period}.csv"
-      use_reference_years: true
-      fallback_years_start: 2020
-      fallback_years_end: 2021
+      use_reference_years: true # If true, will use the year ranges defined in src/comtrade_ingest/reference/hs_sets.py for the cmdCode. 
+                                # If false, will use the years defined in the fallback years.
+      fallback_years_start: 2021
+      fallback_years_end: 2022
 
   output:
     directory: "{single_data_dir}"

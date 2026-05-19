@@ -119,7 +119,8 @@ def _validate_job_expansion(cfg: ComtradeConfig) -> None:
     except Exception as exc:
         raise ConfigValidationError(
             "Job expansion failed. Check cmdCode, year ranges, "
-            "use_reference_years, and reference HS year settings."
+            "use_reference_years, and reference HS year settings. "
+            f"Original error: {type(exc).__name__}: {exc}"
         ) from exc
 
 def write_quarantine_report(
@@ -353,21 +354,28 @@ def _expand_cmd_code_jobs(job: JobConfig) -> list[JobConfig]:
 
     return expanded_jobs
 
-
-def _get_year_range_for_job(job: JobConfig, 
-                            MIN_COMTRADE_YEAR: int, 
-                            MAX_REASONABLE_FUTURE_YEAR: int) -> tuple[int, int] | None:
+def _get_year_range_for_job(job: JobConfig) -> tuple[int, int] | None:
     """
     Determine year range for a job.
 
     Priority:
     1. Explicit all_years_start/all_years_end
-    2. Reference-driven HS validity years
-    3. No expansion
+    2. Reference-driven HS validity years, if use_reference_years=True
+    3. Fallback years, if use_reference_years=False
+    4. No expansion only if the output template does not require {period}
     """
-    if job.all_years_start is not None and job.all_years_end is not None:
+
+    # 1. Explicit all_years_start/all_years_end
+    if job.all_years_start is not None or job.all_years_end is not None:
+        if job.all_years_start is None or job.all_years_end is None:
+            raise ConfigValidationError(
+                f"Job {job.name!r} has an incomplete explicit year range. "
+                "Both all_years_start and all_years_end must be provided."
+            )
+
         return int(job.all_years_start), int(job.all_years_end)
 
+    # 2. Reference-driven years
     if job.use_reference_years:
         cmd_code = job.params.get("cmdCode")
 
@@ -375,13 +383,17 @@ def _get_year_range_for_job(job: JobConfig,
             if len(cmd_code) == 1:
                 cmd_code = cmd_code[0]
             else:
-                raise ValueError(
-                "use_reference_years=True requires one cmdCode per expanded job. "
-                f"Got multiple cmdCode values: {cmd_code}"
+                raise ConfigValidationError(
+                    f"Job {job.name!r} has use_reference_years=true, but cmdCode "
+                    f"contains multiple values: {cmd_code!r}. "
+                    "Expand cmdCode before year expansion."
                 )
 
         if cmd_code is None:
-            raise ValueError("use_reference_years=True requires params.cmdCode.")
+            raise ConfigValidationError(
+                f"Job {job.name!r} has use_reference_years=true, "
+                "but params.cmdCode is missing."
+            )
 
         return get_hs_valid_year_range(
             cmd_code=str(cmd_code),
@@ -389,8 +401,21 @@ def _get_year_range_for_job(job: JobConfig,
             fallback_end=job.fallback_years_end,
         )
 
-    return None
+    # 3. Manual/fallback years when reference years are disabled
+    if not job.use_reference_years:
+        if job.fallback_years_start is None or job.fallback_years_end is None:
+            raise ConfigValidationError(
+                f"Job {job.name!r} has use_reference_years=false, "
+                "so fallback_years_start and fallback_years_end are required. "
+                "Example:\n"
+                "  use_reference_years: false\n"
+                "  fallback_years_start: 2020\n"
+                "  fallback_years_end: 2021"
+            )
 
+        return int(job.fallback_years_start), int(job.fallback_years_end)
+
+    return None
 
 def _expand_year_jobs(job: JobConfig, cfg: ComtradeConfig) -> list[JobConfig]:
     """
@@ -409,11 +434,7 @@ def _expand_year_jobs(job: JobConfig, cfg: ComtradeConfig) -> list[JobConfig]:
     max_year = datetime.now().year + cfg.validation.max_future_year_offset
     max_expanded = cfg.validation.max_expanded_years_per_job
 
-    year_range = _get_year_range_for_job(
-        job,
-        MIN_COMTRADE_YEAR=min_year,
-        MAX_REASONABLE_FUTURE_YEAR=max_year,
-    )
+    year_range = _get_year_range_for_job(job)
 
     if year_range is None:
         return [job]
@@ -877,8 +898,24 @@ def run_single_downloads(cfg: ComtradeConfig,
 def _format_bool(value: bool) -> str:
     return "yes" if value else "no"
 
-
 def _summarize_job_years(job: JobConfig) -> str:
+    if job.all_years_start is not None and job.all_years_end is not None:
+        return f"{job.all_years_start}–{job.all_years_end}"
+
+    if job.use_reference_years:
+        return "reference-driven"
+
+    if job.fallback_years_start is not None and job.fallback_years_end is not None:
+        return f"{job.fallback_years_start}–{job.fallback_years_end}"
+
+    period = job.params.get("period")
+    if period:
+        return str(period)
+
+    return "not specified"
+
+
+def _summarize_job_years_deprecated(job: JobConfig) -> str:
     if job.all_years_start is not None and job.all_years_end is not None:
         return f"{job.all_years_start}–{job.all_years_end}"
 

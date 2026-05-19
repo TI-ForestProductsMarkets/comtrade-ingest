@@ -13,7 +13,7 @@ from comtrade_ingest.reference.cmdCode_dict import HS_VALID_YEARS as DEFAULT_HS_
 # If you want to use the DEFAULT_HS_VALID_YEARS, simply leave LOCAL_HS_VALID_YEARS undefined or empty.
 
 LOCAL_HS_VALID_YEARS: dict[str, tuple[int, int]] = {
-    "440112": (2024, 2025),
+    "440112": (2021, 2023),  # Example: Wood panels cmdCode with valid year range
 }
 
 try:
