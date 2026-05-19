@@ -76,8 +76,8 @@ bulk:
       # year-range
       years:
         enabled: true
-        start: 
-        end: 
+        start: 2021
+        end: 2022
 
       output_file: "Comtrade_bulk_HS_{period}_all_reporters.zip"
 

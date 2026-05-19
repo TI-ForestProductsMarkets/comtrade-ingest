@@ -286,8 +286,11 @@ def _load_jobs(section_name: str, section_cfg: dict[str, Any]) -> list[JobConfig
                     "years.start and years.end"
                 )
 
-            all_years_start = int(years_cfg["start"])
-            all_years_end = int(years_cfg["end"])
+            all_years_start = _parse_required_int(years_cfg.get("start"),
+                                                field_name=f"{section_name}.jobs[{idx}].years.start",)
+
+            all_years_end = _parse_required_int(years_cfg.get("end"),
+                                                field_name=f"{section_name}.jobs[{idx}].years.end",)
 
             if all_years_start > all_years_end:
                 raise ValueError(
@@ -335,6 +338,32 @@ def _load_jobs(section_name: str, section_cfg: dict[str, Any]) -> list[JobConfig
         )
 
     return jobs
+
+def _parse_required_int(value: Any, *, field_name: str) -> int:
+    """
+    Parse a required integer field.
+
+    Empty YAML values become None, so catch that explicitly and raise
+    a user-friendly config error.
+    """
+    if value is None:
+        raise ValueError(
+            f"{field_name} is required and must be an integer year. "
+            "Example: 2024."
+        )
+
+    if isinstance(value, str) and value.strip() == "":
+        raise ValueError(
+            f"{field_name} is required and must be an integer year. "
+            "Example: 2024."
+        )
+
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{field_name} must be an integer year. Got {value!r}."
+        ) from exc
 
 def _parse_optional_int(value: Any, *, field_name: str) -> int | None:
     """
