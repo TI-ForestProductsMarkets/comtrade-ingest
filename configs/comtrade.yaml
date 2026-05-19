@@ -36,7 +36,7 @@ paths:
 # one commodity group × one year or generated year loop.
 
 single:
-  enabled: true
+  enabled: false
 
   jobs:
     - name: "wood_panel_direct"
@@ -62,7 +62,7 @@ single:
 # -------------------------------------------
 
 bulk:
-  enabled: false
+  enabled: true
 
   jobs:
     - name: "hs_all_reporters"
@@ -76,8 +76,8 @@ bulk:
       # year-range
       years:
         enabled: true
-        start: 2024
-        end: 2025
+        start: 
+        end: 
 
       output_file: "Comtrade_bulk_HS_{period}_all_reporters.zip"
 
