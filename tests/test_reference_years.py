@@ -1,5 +1,3 @@
-import pytest
-from comtrade_ingest.reference.hs_sets import get_hs_valid_year_range
 import comtrade_ingest.reference.hs_sets as hs_sets
 
 

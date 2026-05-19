@@ -49,7 +49,7 @@ def main() -> None:
         if args.command == "run":
             run_comtrade_download_pipeline(
                 config_path=config_path,
-                confirm=not args.yes,
+                require_confirmation=not args.yes,
             )
             
     except ComtradeIngestError as exc:

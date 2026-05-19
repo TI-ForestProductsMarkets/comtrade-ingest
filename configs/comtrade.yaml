@@ -74,7 +74,7 @@ bulk:
 
       # year-range
       years:
-        enabled: false
+        enabled: true
         start: 2021
         end: 2022
 

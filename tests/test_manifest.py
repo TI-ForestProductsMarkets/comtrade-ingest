@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from comtrade_ingest.comtrade.manifest import summarize_manifest
-from comtrade_ingest.comtrade.manifest import summarize_manifest
 from comtrade_ingest.comtrade.manifest import find_invalid_manifest_rows
 from comtrade_ingest.comtrade.manifest import validate_output_file
 

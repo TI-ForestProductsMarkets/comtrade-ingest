@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
-
+if TYPE_CHECKING:
+    from comtrade_ingest.comtrade.config import ComtradeConfig
+    
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 

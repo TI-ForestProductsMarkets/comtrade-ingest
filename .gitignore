@@ -3,6 +3,7 @@ data/
 
 # Further personal subdirectories
 jobs/
+tests_guideline.md
 
 # Environment files
 .env

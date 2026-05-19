@@ -25,7 +25,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 from dataclasses import dataclass
-from click import confirm
 
 from comtrade_ingest.comtrade.errors import ConfigValidationError
 from comtrade_ingest.comtrade.api import (
@@ -42,10 +41,14 @@ from comtrade_ingest.comtrade.api import (
     RateLimitExceededError,
 )
 from comtrade_ingest.comtrade.validation import log_config_warnings, validate_comtrade_config
-from comtrade_ingest.io.paths import ensure_comtrade_runtime_directories, make_latest_path, make_timestamped_path
+from comtrade_ingest.io.paths import (
+    ensure_comtrade_runtime_directories, 
+    make_latest_path, 
+    get_project_root, 
+    resolve_path,
+    make_timestamped_path
+)
 from comtrade_ingest.comtrade.config import ComtradeConfig, JobConfig, ModeConfig, load_comtrade_config
-from comtrade_ingest.io.paths import get_project_root, resolve_path
-from comtrade_ingest.utils.logger import get_logger, rel_path
 from comtrade_ingest.reference.hs_sets import get_hs_valid_year_range
 from comtrade_ingest.comtrade.manifest import (
     audit_manifest_file,
@@ -56,8 +59,6 @@ from comtrade_ingest.comtrade.manifest import (
     validate_output_file
 )
 from comtrade_ingest.utils.progress import progress_bar
-from comtrade_ingest.comtrade.config import load_comtrade_config
-from comtrade_ingest.io.paths import get_project_root, ensure_comtrade_runtime_directories
 from comtrade_ingest.utils.logger import (
     get_logger,
     get_log_level,
@@ -676,9 +677,12 @@ def run_bulk_downloads(cfg: ComtradeConfig,
             if output_path.exists() and not cfg.runtime.overwrite_existing:
                 if output_path.stat().st_size > 0:
                     status = "skipped_existing"
-                    logger.info("[bulk] Skipping existing file because overwrite_existing=false: %s", rel_path(output_path),)
+                    logger.info(
+                            "[bulk] Job status=%s; skipping existing file because overwrite_existing=false: %s",
+                            status,
+                            rel_path(output_path))
                 else:
-                    logger.warning("Existing output is zero-byte; re-downloading: %s", output_path)
+                    logger.warning("Existing output is zero-byte; re-downloading: %s", rel_path(output_path))
 
 
                 manifest_rows.append(
@@ -1029,8 +1033,8 @@ def log_run_configuration(
 
     logger.info("=" * 72)
 
-def _confirm_run(confirm: bool) -> None:
-    if not confirm:
+def _confirm_run(require_confirmation: bool) -> None:
+    if not require_confirmation:
         return
 
     response = input("Proceed with this Comtrade download configuration? [y/N]: ").strip().lower()
@@ -1042,7 +1046,7 @@ def _confirm_run(confirm: bool) -> None:
 def run_comtrade_download_pipeline(
     config_path: Path | None = None,
     log_path: Path | None = None,
-    confirm: bool = True,
+    require_confirmation: bool = True,
 ) -> list[dict[str, Any]]:
     """
     Main Comtrade download pipeline.
@@ -1116,7 +1120,7 @@ def run_comtrade_download_pipeline(
     ## Warn about any non-fatal config issues that might cause problems.
     log_config_warnings(cfg)
 
-    _confirm_run(confirm)
+    _confirm_run(require_confirmation)
 
     ################## Validate authentication
     _log_step(2, total_step, pipeline_steps[1])

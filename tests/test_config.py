@@ -1,4 +1,3 @@
-from pathlib import Path
 from comtrade_ingest.comtrade.config import load_comtrade_config
 
 import pytest

@@ -4,17 +4,14 @@ Shared utility functions for Comtrade download modules.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
-import yaml
+if TYPE_CHECKING:
+    from comtrade_ingest.comtrade.config import ComtradeConfig
 
-from comtrade_ingest.io.paths import resolve_path
 from comtrade_ingest.utils.logger import get_logger
 
-logger = get_logger("COMTRADE.UTILS")
-
+logger = get_logger("COMTRADE.VALIDATION")
 
 def log_config_warnings(cfg: ComtradeConfig) -> None:
 

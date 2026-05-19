@@ -16,7 +16,7 @@ def main() -> None:
     try:
         run_comtrade_download_pipeline(
             config_path=config_path,
-            confirm=True,
+            require_confirmation=True,
         )
     except ComtradeIngestError as exc:
         print("")

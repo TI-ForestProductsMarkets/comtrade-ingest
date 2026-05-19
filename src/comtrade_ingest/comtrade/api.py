@@ -583,7 +583,7 @@ def download_bulk(
     index_path = output_path.with_suffix(".json")
     index_path.write_bytes(payload)
     logger.info("[bulk] Saved bulk index: %s", index_path)
-    index_items = _parse_bulk_index_items(payload)
+    #index_items = _parse_bulk_index_items(payload)
 
     max_workers = max(1, int(getattr(runtime, "max_workers", 1)))
 
