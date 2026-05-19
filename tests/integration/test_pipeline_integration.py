@@ -233,7 +233,7 @@ bulk:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="output_file.*period"):
+    with pytest.raises((ValueError, ConfigValidationError), match="output_file.*period"):
         run_comtrade_download_pipeline(
             config_path=config_path,
             require_confirmation=False,
