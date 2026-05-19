@@ -109,10 +109,10 @@ def _mode_quarantine_dir(mode_cfg: ModeConfig) -> Path | None:
 def _validate_job_expansion(cfg: ComtradeConfig) -> None:
     try:
         if cfg.single.enabled:
-            _expand_jobs(cfg.single.jobs, cfg)
+            _expand_jobs(cfg.single.jobs, cfg, mode_name="single")
 
         if cfg.bulk.enabled:
-            _expand_jobs(cfg.bulk.jobs, cfg)
+            _expand_jobs(cfg.bulk.jobs, cfg, mode_name="bulk")
 
     except ConfigValidationError:
         raise
@@ -354,7 +354,95 @@ def _expand_cmd_code_jobs(job: JobConfig) -> list[JobConfig]:
 
     return expanded_jobs
 
-def _get_year_range_for_job(job: JobConfig) -> tuple[int, int] | None:
+def _output_template_requires_period(output_file: str) -> bool:
+    return "{period}" in output_file
+
+def _get_year_range_for_job(
+    job: JobConfig,
+    *,
+    mode_name: str,
+) -> tuple[int, int] | None:
+    """
+    Determine year range for a job.
+
+    Single jobs may use:
+    - explicit years
+    - reference years
+    - fallback years
+
+    Bulk jobs should use:
+    - explicit years via years.enabled=true
+    """
+
+    # 1. Explicit years, used by bulk and optionally single
+    if job.all_years_start is not None or job.all_years_end is not None:
+        if job.all_years_start is None or job.all_years_end is None:
+            raise ConfigValidationError(
+                f"{mode_name} job {job.name!r} has an incomplete explicit year range. "
+                "Both years.start and years.end must be provided."
+            )
+
+        return int(job.all_years_start), int(job.all_years_end)
+
+    # 2. Reference-driven years should normally be single-only
+    if job.use_reference_years:
+        if mode_name != "single":
+            raise ConfigValidationError(
+                f"{mode_name} job {job.name!r} has use_reference_years=true, "
+                "but reference-driven HS years are only supported for single jobs."
+            )
+
+        cmd_code = job.params.get("cmdCode")
+
+        if isinstance(cmd_code, list):
+            if len(cmd_code) == 1:
+                cmd_code = cmd_code[0]
+            else:
+                raise ConfigValidationError(
+                    f"Job {job.name!r} has use_reference_years=true, but cmdCode "
+                    f"contains multiple values: {cmd_code!r}. "
+                    "Expand cmdCode before year expansion."
+                )
+
+        if cmd_code is None:
+            raise ConfigValidationError(
+                f"Job {job.name!r} has use_reference_years=true, "
+                "but params.cmdCode is missing."
+            )
+
+        return get_hs_valid_year_range(
+            cmd_code=str(cmd_code),
+            fallback_start=job.fallback_years_start,
+            fallback_end=job.fallback_years_end,
+        )
+
+    # 3. Fallback years are single-only
+    if mode_name == "single":
+        if job.fallback_years_start is None or job.fallback_years_end is None:
+            raise ConfigValidationError(
+                f"single job {job.name!r} has use_reference_years=false, "
+                "so fallback_years_start and fallback_years_end are required. "
+                "Example: use_reference_years=false, fallback_years_start=2020, "
+                "fallback_years_end=2021."
+            )
+
+        return int(job.fallback_years_start), int(job.fallback_years_end)
+
+    # 4. Bulk: no explicit years configured
+    if mode_name == "bulk":
+        if _output_template_requires_period(job.output_file):
+            raise ConfigValidationError(
+                f"bulk job {job.name!r} has output_file containing {{period}}, "
+                "but no year expansion is enabled. "
+                "Set years.enabled=true with years.start and years.end, "
+                "or remove {period} from output_file."
+            )
+
+        return None
+
+    return None
+
+def _get_year_range_for_job_deprecated(job: JobConfig) -> tuple[int, int] | None:
     """
     Determine year range for a job.
 
@@ -417,7 +505,10 @@ def _get_year_range_for_job(job: JobConfig) -> tuple[int, int] | None:
 
     return None
 
-def _expand_year_jobs(job: JobConfig, cfg: ComtradeConfig) -> list[JobConfig]:
+def _expand_year_jobs(job: JobConfig, 
+                      cfg: ComtradeConfig,
+                      *,
+                     mode_name: str) -> list[JobConfig]:
     """
     Expand a job into one job per year.
 
@@ -434,7 +525,7 @@ def _expand_year_jobs(job: JobConfig, cfg: ComtradeConfig) -> list[JobConfig]:
     max_year = datetime.now().year + cfg.validation.max_future_year_offset
     max_expanded = cfg.validation.max_expanded_years_per_job
 
-    year_range = _get_year_range_for_job(job)
+    year_range = _get_year_range_for_job(job, mode_name=mode_name)
 
     if year_range is None:
         return [job]
@@ -515,7 +606,10 @@ def _expand_year_jobs(job: JobConfig, cfg: ComtradeConfig) -> list[JobConfig]:
 
     return expanded_jobs
 
-def _expand_jobs(jobs: list[JobConfig], cfg: ComtradeConfig) -> list[JobConfig]:    
+def  _expand_jobs(jobs: list[JobConfig],
+    cfg: ComtradeConfig,
+    *,
+    mode_name: str,) -> list[JobConfig]:    
     """
     Expand jobs in this order:
 
@@ -530,7 +624,7 @@ def _expand_jobs(jobs: list[JobConfig], cfg: ComtradeConfig) -> list[JobConfig]:
         cmd_jobs = _expand_cmd_code_jobs(job)
 
         for cmd_job in cmd_jobs:
-            expanded.extend(_expand_year_jobs(cmd_job, cfg=cfg))
+            expanded.extend(_expand_year_jobs(cmd_job, cfg=cfg, mode_name=mode_name))
 
     return expanded
 
@@ -625,7 +719,7 @@ def run_bulk_downloads(cfg: ComtradeConfig,
     manifest_rows: list[dict[str, Any]] = []
 
     try:
-        jobs = _expand_jobs(cfg.bulk.jobs, cfg)
+        jobs = _expand_jobs(cfg.bulk.jobs, cfg, mode_name="bulk")
     except ConfigValidationError:
         raise
     except Exception as exc:
@@ -825,7 +919,7 @@ def run_single_downloads(cfg: ComtradeConfig,
     logger.info("[single] Manifest path: %s", rel_path(manifest_path))
 
     try:
-        jobs = _expand_jobs(cfg.single.jobs, cfg)
+        jobs = _expand_jobs(cfg.single.jobs, cfg, mode_name="single")
     except ConfigValidationError:
         raise
     except Exception as exc:
@@ -997,10 +1091,10 @@ def log_run_configuration(
         logger.info("  endpoint:         %s", cfg.endpoint.single)
         logger.info("  output directory: %s", rel_path(_mode_output_dir(cfg.single)))
         logger.info("  manifest file:    %s", cfg.single.output.manifest_file)
-        #logger.info("  manifest latest:  %s", cfg.single.output.manifest_latest_file)
+        logger.info("  manifest latest:  %s", cfg.single.output.manifest_latest_file)
         logger.info("  jobs:             %d", len(cfg.single.jobs))
 
-        expanded_jobs = _expand_jobs(cfg.single.jobs, cfg=cfg)
+        expanded_jobs = _expand_jobs(cfg.single.jobs, cfg=cfg, mode_name="single")
         logger.info("  expanded jobs:    %d", len(expanded_jobs))
 
         for idx, job in enumerate(cfg.single.jobs, start=1):

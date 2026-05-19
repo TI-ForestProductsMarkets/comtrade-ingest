@@ -36,7 +36,7 @@ paths:
 # one commodity group × one year or generated year loop.
 
 single:
-  enabled: false
+  enabled: true
 
   jobs:
     - name: "wood_panel_direct"
@@ -47,10 +47,9 @@ single:
         flowCode: "FLOW_ALL"
 
       output_file: "comtrade_{cmdCode}_{period}.csv"
-      use_reference_years: true # If true, will use the year ranges defined in src/comtrade_ingest/reference/hs_sets.py for the cmdCode. 
-                                # If false, will use the years defined in the fallback years.
-      fallback_years_start: 2021
-      fallback_years_end: 2022
+      use_reference_years: false
+      fallback_years_start: 2009
+      fallback_years_end: 2010
 
   output:
     directory: "{single_data_dir}"
@@ -62,7 +61,7 @@ single:
 # -------------------------------------------
 
 bulk:
-  enabled: true
+  enabled: false
 
   jobs:
     - name: "hs_all_reporters"
