@@ -63,24 +63,6 @@ def load_manifest(manifest_path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def _collect_output_paths(rows: list[dict[str, Any]]) -> list[Path]:
-    paths: list[Path] = []
-
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-
-        output_paths = row.get("output_paths")
-        if isinstance(output_paths, list):
-            paths.extend(Path(path) for path in output_paths if path)
-            continue
-
-        output_path = row.get("output_path")
-        if output_path:
-            paths.append(Path(output_path))
-
-    return paths
-
 def log_error_jobs(rows: list[dict[str, Any]], limit: int = 20) -> None:
     error_entries = [row for row in rows if row.get("status") in {"error", "failed"}]
 
@@ -211,11 +193,6 @@ def summarize_manifest(
     )
 
 
-def summarize_manifest_file(manifest_path: Path) -> ManifestSummary:
-    rows = load_manifest(manifest_path)
-    return summarize_manifest(rows, manifest_path)
-
-
 def _format_bytes(n: int) -> str:
     value = float(n)
     units = ["B", "KB", "MB", "GB", "TB"]
@@ -276,22 +253,6 @@ def audit_manifest_file(
         )
 
     return summary
-
-def audit_bulk_index_count(row: dict[str, Any]) -> tuple[int | None, int]:
-    index_path_raw = row.get("bulk_index_path")
-    output_paths = row.get("output_paths") or []
-
-    if not index_path_raw:
-        return None, len(output_paths)
-
-    index_path = Path(index_path_raw)
-    if not index_path.exists():
-        return None, len(output_paths)
-
-    data = json.loads(index_path.read_text(encoding="utf-8"))
-    index_count = data.get("count")
-
-    return int(index_count), len(output_paths)
 
 
 def validate_output_file(path: Path, min_size_bytes: int = 20) -> tuple[bool, str, int]:

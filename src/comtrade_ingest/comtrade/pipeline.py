@@ -442,68 +442,6 @@ def _get_year_range_for_job(
 
     return None
 
-def _get_year_range_for_job_deprecated(job: JobConfig) -> tuple[int, int] | None:
-    """
-    Determine year range for a job.
-
-    Priority:
-    1. Explicit all_years_start/all_years_end
-    2. Reference-driven HS validity years, if use_reference_years=True
-    3. Fallback years, if use_reference_years=False
-    4. No expansion only if the output template does not require {period}
-    """
-
-    # 1. Explicit all_years_start/all_years_end
-    if job.all_years_start is not None or job.all_years_end is not None:
-        if job.all_years_start is None or job.all_years_end is None:
-            raise ConfigValidationError(
-                f"Job {job.name!r} has an incomplete explicit year range. "
-                "Both all_years_start and all_years_end must be provided."
-            )
-
-        return int(job.all_years_start), int(job.all_years_end)
-
-    # 2. Reference-driven years
-    if job.use_reference_years:
-        cmd_code = job.params.get("cmdCode")
-
-        if isinstance(cmd_code, list):
-            if len(cmd_code) == 1:
-                cmd_code = cmd_code[0]
-            else:
-                raise ConfigValidationError(
-                    f"Job {job.name!r} has use_reference_years=true, but cmdCode "
-                    f"contains multiple values: {cmd_code!r}. "
-                    "Expand cmdCode before year expansion."
-                )
-
-        if cmd_code is None:
-            raise ConfigValidationError(
-                f"Job {job.name!r} has use_reference_years=true, "
-                "but params.cmdCode is missing."
-            )
-
-        return get_hs_valid_year_range(
-            cmd_code=str(cmd_code),
-            fallback_start=job.fallback_years_start,
-            fallback_end=job.fallback_years_end,
-        )
-
-    # 3. Manual/fallback years when reference years are disabled
-    if not job.use_reference_years:
-        if job.fallback_years_start is None or job.fallback_years_end is None:
-            raise ConfigValidationError(
-                f"Job {job.name!r} has use_reference_years=false, "
-                "so fallback_years_start and fallback_years_end are required. "
-                "Example:\n"
-                "  use_reference_years: false\n"
-                "  fallback_years_start: 2020\n"
-                "  fallback_years_end: 2021"
-            )
-
-        return int(job.fallback_years_start), int(job.fallback_years_end)
-
-    return None
 
 def _expand_year_jobs(job: JobConfig, 
                       cfg: ComtradeConfig,
@@ -1009,20 +947,6 @@ def _summarize_job_years(job: JobConfig) -> str:
     return "not specified"
 
 
-def _summarize_job_years_deprecated(job: JobConfig) -> str:
-    if job.all_years_start is not None and job.all_years_end is not None:
-        return f"{job.all_years_start}–{job.all_years_end}"
-
-    if job.use_reference_years:
-        return "reference-driven"
-
-    period = job.params.get("period")
-    if period:
-        return str(period)
-
-    return "not specified"
-
-
 def _summarize_local_filter(local_filter: dict[str, Any] | None) -> str:
     if not local_filter:
         return "none"
@@ -1091,7 +1015,7 @@ def log_run_configuration(
         logger.info("  endpoint:         %s", cfg.endpoint.single)
         logger.info("  output directory: %s", rel_path(_mode_output_dir(cfg.single)))
         logger.info("  manifest file:    %s", cfg.single.output.manifest_file)
-        logger.info("  manifest latest:  %s", cfg.single.output.manifest_latest_file)
+        #logger.info("  manifest latest:  %s", cfg.single.output.manifest_latest_file)
         logger.info("  jobs:             %d", len(cfg.single.jobs))
 
         expanded_jobs = _expand_jobs(cfg.single.jobs, cfg=cfg, mode_name="single")
@@ -1313,24 +1237,6 @@ def run_comtrade_download_pipeline(
             logger.warning("  ... and %d more failed job(s)", len(failed) - 20)
 
     return all_manifest_rows
-
-
-# Optional backward-compatible alias while you migrate old imports.
-def run_comtrade_api_pipeline(
-    paths_config_path: Path | None = None,
-    api_config_path: Path | None = None,
-) -> list[dict[str, Any]]:
-    """
-    Temporary compatibility wrapper.
-
-    Old code may call:
-
-        run_comtrade_api_pipeline(paths_config_path=..., api_config_path=...)
-
-    The new pipeline only needs the Comtrade config path.
-    """
-    return run_comtrade_download_pipeline(config_path=api_config_path)
-
 
 def _run_single_job_safe(
     *,
