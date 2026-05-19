@@ -1,6 +1,6 @@
 [project]
 name = "comtrade-ingest"
-version = "2.2.0"
+version = "0.2.0"
 description = "Config-driven downloader and staging pipeline for UN Comtrade data."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,6 +29,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["comtrade_ingest*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
