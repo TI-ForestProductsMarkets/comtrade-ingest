@@ -48,8 +48,8 @@ single:
 
       output_file: "comtrade_{cmdCode}_{period}.csv"
       use_reference_years: false
-      fallback_years_start: 2009
-      fallback_years_end: 2010
+      fallback_years_start: 2024
+      fallback_years_end: 2025
 
   output:
     directory: "{single_data_dir}"

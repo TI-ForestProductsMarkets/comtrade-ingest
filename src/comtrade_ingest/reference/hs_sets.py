@@ -6,7 +6,7 @@ Use these as tokens in configs/comtrade.yaml, e.g.
 """
 
 from __future__ import annotations
-from comtrade_ingest.reference.cmdCode_dict import HS_VALID_YEARS as DEFAULT_HS_VALID_YEARS
+from comtrade_ingest.reference.cmd_codes import HS_VALID_YEARS as DEFAULT_HS_VALID_YEARS
 
 # Optional local override.
 # If you define LOCAL_HS_VALID_YEARS below, it will be used instead of the imported DEFAULT_HS_VALID_YEARS.
