@@ -48,7 +48,7 @@ from comtrade_ingest.io.paths import (
     resolve_path,
     make_timestamped_path
 )
-from comtrade_ingest.comtrade.config import ComtradeConfig, JobConfig, ModeConfig, load_comtrade_config
+from comtrade_ingest.configs.config import ComtradeConfig, JobConfig, ModeConfig, load_comtrade_config
 from comtrade_ingest.reference.hs_sets import get_hs_valid_year_range
 from comtrade_ingest.comtrade.manifest import (
     audit_manifest_file,

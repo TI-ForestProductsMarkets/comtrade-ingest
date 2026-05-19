@@ -9,6 +9,8 @@ It supports two download modes:
 
 The package is designed around a YAML config file. Users define paths, API settings, jobs, retries, logging, and runtime behavior in `configs/comtrade.yaml`, then run one script.
 
+For a beginner-friendly setup guide, see [Getting Started](docs/getting-started.md).
+
 ---
 
 ## Main idea

@@ -1,4 +1,4 @@
-from comtrade_ingest.comtrade.config import (
+from comtrade_ingest.configs.config import (
     AuthConfig,
     ComtradeConfig,
     EndpointConfig,
