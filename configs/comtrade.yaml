@@ -3,8 +3,10 @@
 # Subscription plans: https://uncomtrade.org/docs/subscriptions/
 
 # IMPORTANT:
-# Store your API key in .env like this:
+# Store your API key in `.env.example` like this:
 # COMTRADE_API_KEY=your_key_here
+#
+# And make sure to rename `.env.example` to `.env` and keep it in the same directory as this config file.
 
 # Token tips:
 # - `cmdCode` use tokens names from src/comtrade_ingest/reference/hs_sets.py
