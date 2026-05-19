@@ -34,3 +34,6 @@ include = ["comtrade_ingest*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "integration: tests that exercise multiple components together",
+]
