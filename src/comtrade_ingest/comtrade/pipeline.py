@@ -41,7 +41,7 @@ from comtrade_ingest.comtrade.api import (
     validate_auth_preflight,
     RateLimitExceededError,
 )
-from comtrade_ingest.comtrade.utils import log_config_warnings, validate_comtrade_config
+from comtrade_ingest.comtrade.validation import log_config_warnings, validate_comtrade_config
 from comtrade_ingest.io.paths import ensure_comtrade_runtime_directories, make_latest_path, make_timestamped_path
 from comtrade_ingest.comtrade.config import ComtradeConfig, JobConfig, ModeConfig, load_comtrade_config
 from comtrade_ingest.io.paths import get_project_root, resolve_path

@@ -16,24 +16,6 @@ from comtrade_ingest.utils.logger import get_logger
 logger = get_logger("COMTRADE.UTILS")
 
 
-def load_yaml(path: Path) -> dict[str, Any]:
-    logger.debug("Loading YAML config from %s", path)
-
-    with open(path, "r", encoding="utf-8") as file:
-        data = yaml.safe_load(file) or {}
-
-    if not isinstance(data, dict):
-        raise ValueError(f"Expected mapping at root of YAML: {path}")
-
-    return data
-
-
-def write_manifest(rows: list[dict[str, Any]], manifest_path: Path) -> None:
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
-    logger.info("Manifest written to: %s", manifest_path)
-
-
 def log_config_warnings(cfg: ComtradeConfig) -> None:
 
     if cfg.single.enabled and cfg.bulk.enabled:

@@ -10,7 +10,7 @@ from comtrade_ingest.comtrade.api import (
     PaginationConfig,
     RetryConfig,
 )
-from comtrade_ingest.comtrade.utils import load_yaml
+from comtrade_ingest.io.loaders import load_yaml
 from comtrade_ingest.reference import flow_sets, hs_sets
 from comtrade_ingest.utils.logger import get_logger
 
