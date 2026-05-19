@@ -3,7 +3,7 @@ import pytest
 from comtrade_ingest.comtrade.config import _load_jobs
 
 
-def test_bulk_years_enabled_requires_start():
+def test_bulk_years_requires_start():
     section_cfg = {
         "jobs": [
             {
@@ -17,7 +17,6 @@ def test_bulk_years_enabled_requires_start():
                 },
                 "output_file": "Comtrade_bulk_HS_{period}_all_reporters.zip",
                 "years": {
-                    "enabled": True,
                     "start": None,
                     "end": 2025,
                 },
@@ -25,11 +24,11 @@ def test_bulk_years_enabled_requires_start():
         ]
     }
 
-    with pytest.raises(ValueError, match="bulk.jobs\\[0\\].years.start"):
+    with pytest.raises(ValueError, match="years requires both start and end"):
         _load_jobs("bulk", section_cfg)
 
 
-def test_bulk_years_enabled_requires_end():
+def test_bulk_years_requires_end():
     section_cfg = {
         "jobs": [
             {
@@ -43,7 +42,6 @@ def test_bulk_years_enabled_requires_end():
                 },
                 "output_file": "Comtrade_bulk_HS_{period}_all_reporters.zip",
                 "years": {
-                    "enabled": True,
                     "start": 2024,
                     "end": None,
                 },
@@ -51,11 +49,11 @@ def test_bulk_years_enabled_requires_end():
         ]
     }
 
-    with pytest.raises(ValueError, match="bulk.jobs\\[0\\].years.end"):
+    with pytest.raises(ValueError, match="years requires both start and end"):
         _load_jobs("bulk", section_cfg)
 
 
-def test_bulk_years_enabled_parses_valid_range():
+def test_bulk_years_parses_valid_range():
     section_cfg = {
         "jobs": [
             {
@@ -69,7 +67,6 @@ def test_bulk_years_enabled_parses_valid_range():
                 },
                 "output_file": "Comtrade_bulk_HS_{period}_all_reporters.zip",
                 "years": {
-                    "enabled": True,
                     "start": 2024,
                     "end": 2025,
                 },
@@ -146,7 +143,6 @@ def test_bulk_years_start_cannot_be_after_end():
                 },
                 "output_file": "Comtrade_bulk_HS_{period}_all_reporters.zip",
                 "years": {
-                    "enabled": True,
                     "start": 2025,
                     "end": 2024,
                 },

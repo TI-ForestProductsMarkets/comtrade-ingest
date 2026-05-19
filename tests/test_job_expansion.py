@@ -18,7 +18,7 @@ def test_expand_year_jobs_rejects_unreasonable_year_range():
     )
 
     with pytest.raises(ConfigValidationError, match="too far in the future"):
-        _expand_year_jobs(job, cfg)
+        _expand_year_jobs(job, cfg, mode_name="single")
 
 def test_expand_year_jobs_with_explicit_years():
     cfg = create_test_config()
@@ -30,7 +30,7 @@ def test_expand_year_jobs_with_explicit_years():
         all_years_end=2025,
     )
 
-    expanded = _expand_year_jobs(job, cfg)
+    expanded = _expand_year_jobs(job, cfg, mode_name="single")
 
     assert len(expanded) == 3
     assert [j.params["period"] for j in expanded] == ["2023", "2024", "2025"]

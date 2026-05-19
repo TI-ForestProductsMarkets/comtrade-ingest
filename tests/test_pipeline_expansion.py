@@ -86,7 +86,7 @@ def test_expand_jobs_expands_cmd_code_list_and_year_range() -> None:
         all_years_end=2025,
     )
 
-    jobs = _expand_jobs([job], cfg)
+    jobs = _expand_jobs([job], cfg, mode_name="single")
 
     assert len(jobs) == 4
 
@@ -110,7 +110,7 @@ def test_expand_jobs_converts_single_item_cmd_code_list_to_scalar() -> None:
         all_years_end=2024,
     )
 
-    jobs = _expand_jobs([job], cfg)
+    jobs = _expand_jobs([job], cfg, mode_name="single")
 
     assert len(jobs) == 1
     assert jobs[0].params["cmdCode"] == "441012"

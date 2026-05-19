@@ -14,7 +14,7 @@ from comtrade_ingest.comtrade.api import (
     PaginationConfig,
     RetryConfig,
 )
-from comtrade_ingest.comtrade.utils import validate_comtrade_config
+from comtrade_ingest.comtrade.validation import validate_comtrade_config
 
 
 def test_validate_config_rejects_disabled_auth_for_comtrade_endpoint(tmp_path):
@@ -96,7 +96,6 @@ single:
         cmdCode: "441012"
       output_file: "comtrade_{{cmdCode}}_{{period}}.csv"
       years:
-        enabled: true
         start: 2020
         end: 2020
   output:
@@ -181,7 +180,6 @@ single:
         cmdCode: "441012"
       output_file: "comtrade_{{cmdCode}}_{{period}}.csv"
       years:
-        enabled: true
         start: 2020
         end: 2020
   output:
@@ -262,7 +260,6 @@ bulk:
         freqCode: "A"
         clCode: "HS"
       years:
-        enabled: true
         start: 2024
         end: 2025
       output_file: "Comtrade_bulk_HS_{period}.zip"
