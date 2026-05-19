@@ -13,6 +13,109 @@ from comtrade_ingest.utils.logger import get_logger
 
 logger = get_logger("COMTRADE.VALIDATION")
 
+def validate_job_year_source(
+    *,
+    section_name: str,
+    idx: int,
+    job_name: str,
+    output_file: str,
+    all_years_start: int | None,
+    all_years_end: int | None,
+    use_reference_years: bool,
+    fallback_years_start: int | None,
+    fallback_years_end: int | None,
+) -> None:
+    has_explicit_years = all_years_start is not None or all_years_end is not None
+    has_fallback_years = (
+        fallback_years_start is not None or fallback_years_end is not None
+    )
+    output_requires_period = "{period}" in output_file
+
+    if section_name == "single":
+        if has_explicit_years and use_reference_years:
+            raise ValueError(
+                f"{section_name}.jobs[{idx}] {job_name!r} cannot use both "
+                "years.start/end and use_reference_years=true."
+            )
+
+        if has_explicit_years and has_fallback_years:
+            raise ValueError(
+                f"{section_name}.jobs[{idx}] {job_name!r} cannot use both "
+                "years.start/end and fallback_years_start/end."
+            )
+
+        if not has_explicit_years and not use_reference_years:
+            if fallback_years_start is None or fallback_years_end is None:
+                raise ValueError(
+                    f"{section_name}.jobs[{idx}] {job_name!r} has "
+                    "use_reference_years=false, so fallback_years_start and "
+                    "fallback_years_end are required."
+                )
+
+    elif section_name == "bulk":
+        if use_reference_years:
+            raise ValueError(
+                f"{section_name}.jobs[{idx}] {job_name!r} cannot use "
+                "use_reference_years. Bulk jobs should use years.start/end."
+            )
+
+        if has_fallback_years:
+            raise ValueError(
+                f"{section_name}.jobs[{idx}] {job_name!r} cannot use "
+                "fallback_years_start/end. Bulk jobs should use years.start/end."
+            )
+
+        if output_requires_period and not has_explicit_years:
+            raise ValueError(
+                f"{section_name}.jobs[{idx}] {job_name!r} has output_file "
+                "containing {period}, but no years.start/end were provided."
+            )
+
+    else:
+        raise ValueError(f"Unknown job section: {section_name!r}")
+
+    
+def validate_fallback_years_for_job(
+    *,
+    section_name: str,
+    idx: int,
+    job_name: str,
+    use_reference_years: bool,
+    years_enabled: bool,
+    fallback_years_start: int | None,
+    fallback_years_end: int | None,
+) -> None:
+    if fallback_years_start is None and fallback_years_end is not None:
+        raise ValueError(
+            f"{section_name}.jobs[{idx}] {job_name!r} has fallback_years_end "
+            "but no fallback_years_start. Please provide both."
+        )
+
+    if fallback_years_start is not None and fallback_years_end is None:
+        raise ValueError(
+            f"{section_name}.jobs[{idx}] {job_name!r} has fallback_years_start "
+            "but no fallback_years_end. Please provide both."
+        )
+
+    if fallback_years_start is not None and fallback_years_end is not None:
+        if fallback_years_start > fallback_years_end:
+            raise ValueError(
+                f"{section_name}.jobs[{idx}] {job_name!r} has invalid fallback years: "
+                f"fallback_years_start={fallback_years_start} is greater than "
+                f"fallback_years_end={fallback_years_end}."
+            )
+
+    if not use_reference_years and not years_enabled:
+        if fallback_years_start is None or fallback_years_end is None:
+            raise ValueError(
+                f"{section_name}.jobs[{idx}] {job_name!r} has use_reference_years=false, "
+                "so fallback_years_start and fallback_years_end are required.\n\n"
+                "Example:\n"
+                "  use_reference_years: false\n"
+                "  fallback_years_start: 2020\n"
+                "  fallback_years_end: 2021"
+            )
+
 def log_config_warnings(cfg: ComtradeConfig) -> None:
 
     if cfg.single.enabled and cfg.bulk.enabled:

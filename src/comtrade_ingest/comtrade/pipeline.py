@@ -1000,7 +1000,9 @@ def log_run_configuration(
 
     if cfg.bulk.enabled:
         logger.info("")
+        logger.info("=" * 40)
         logger.info("Bulk:")
+        logger.info("=" * 40)
         logger.info("  endpoint:         %s", cfg.endpoint.bulk)
         logger.info("  output directory: %s", rel_path(_mode_output_dir(cfg.bulk)))
         logger.info("  manifest file:    %s", cfg.bulk.output.manifest_file)
@@ -1015,7 +1017,9 @@ def log_run_configuration(
 
     if cfg.single.enabled:
         logger.info("")
+        logger.info("=" * 40)
         logger.info("Single API:")
+        logger.info("=" * 40)
         logger.info("  endpoint:         %s", cfg.endpoint.single)
         logger.info("  output directory: %s", rel_path(_mode_output_dir(cfg.single)))
         logger.info("  manifest file:    %s", cfg.single.output.manifest_file)

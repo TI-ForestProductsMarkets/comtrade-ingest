@@ -9,6 +9,7 @@ from comtrade_ingest.comtrade.api import (
     PaginationConfig,
     RetryConfig,
 )
+from comtrade_ingest.comtrade.validation import validate_fallback_years_for_job, validate_job_year_source
 from comtrade_ingest.io.loaders import load_yaml
 from comtrade_ingest.reference import flow_sets, hs_sets
 from comtrade_ingest.utils.logger import get_logger
@@ -182,49 +183,209 @@ def _resolve_params(params: dict[str, Any]) -> dict[str, Any]:
 
     return resolved
 
-def _validate_fallback_years_for_job(
+def _parse_job_years(
     *,
     section_name: str,
     idx: int,
-    job_name: str,
-    use_reference_years: bool,
-    years_enabled: bool,
-    fallback_years_start: int | None,
-    fallback_years_end: int | None,
-) -> None:
-    if fallback_years_start is None and fallback_years_end is not None:
+    years_cfg: dict[str, Any],
+) -> tuple[int | None, int | None]:
+    """
+    Parse explicit years.start / years.end.
+
+    Rule:
+    - no years.start/end: no explicit year expansion
+    - both present: expand by year
+    - only one present: invalid
+    """
+
+    if "enabled" in years_cfg:
         raise ValueError(
-            f"{section_name}.jobs[{idx}] {job_name!r} has fallback_years_end "
-            "but no fallback_years_start. Please provide both."
+            f"{section_name}.jobs[{idx}].years.enabled is no longer supported. "
+            "Use years.start and years.end directly, or remove the years block."
         )
 
-    if fallback_years_start is not None and fallback_years_end is None:
+    has_start = "start" in years_cfg and years_cfg.get("start") is not None
+    has_end = "end" in years_cfg and years_cfg.get("end") is not None
+    has_any_year_key = "start" in years_cfg or "end" in years_cfg
+
+    if not has_any_year_key:
+        return None, None
+
+    if not has_start or not has_end:
         raise ValueError(
-            f"{section_name}.jobs[{idx}] {job_name!r} has fallback_years_start "
-            "but no fallback_years_end. Please provide both."
+            f"{section_name}.jobs[{idx}].years requires both start and end. "
+            "Example: years: {start: 2021, end: 2022}."
         )
 
-    if fallback_years_start is not None and fallback_years_end is not None:
-        if fallback_years_start > fallback_years_end:
-            raise ValueError(
-                f"{section_name}.jobs[{idx}] {job_name!r} has invalid fallback years: "
-                f"fallback_years_start={fallback_years_start} is greater than "
-                f"fallback_years_end={fallback_years_end}."
-            )
+    start = _parse_required_int(
+        years_cfg.get("start"),
+        field_name=f"{section_name}.jobs[{idx}].years.start",
+    )
+    end = _parse_required_int(
+        years_cfg.get("end"),
+        field_name=f"{section_name}.jobs[{idx}].years.end",
+    )
 
-    if not use_reference_years and not years_enabled:
-        if fallback_years_start is None or fallback_years_end is None:
-            raise ValueError(
-                f"{section_name}.jobs[{idx}] {job_name!r} has use_reference_years=false, "
-                "so fallback_years_start and fallback_years_end are required.\n\n"
-                "Example:\n"
-                "  use_reference_years: false\n"
-                "  fallback_years_start: 2020\n"
-                "  fallback_years_end: 2021"
-            )
+    if start > end:
+        raise ValueError(
+            f"{section_name}.jobs[{idx}].years.start "
+            f"({start}) is greater than years.end ({end})."
+        )
 
+    return start, end
+
+def _parse_job_fallback_years(
+    *,
+    section_name: str,
+    idx: int,
+    raw_job: dict[str, Any],
+) -> tuple[int | None, int | None]:
+    has_fallback_start = "fallback_years_start" in raw_job
+    has_fallback_end = "fallback_years_end" in raw_job
+
+    if section_name != "single":
+        if has_fallback_start or has_fallback_end:
+            raise ValueError(
+                f"{section_name}.jobs[{idx}] has fallback_years_start/end, "
+                "but fallback years are only supported for single jobs."
+            )
+        return None, None
+
+    start = _parse_optional_int(
+        raw_job.get("fallback_years_start"),
+        field_name=f"{section_name}.jobs[{idx}].fallback_years_start",
+    )
+    end = _parse_optional_int(
+        raw_job.get("fallback_years_end"),
+        field_name=f"{section_name}.jobs[{idx}].fallback_years_end",
+    )
+
+    if start is None and end is not None:
+        raise ValueError(
+            f"{section_name}.jobs[{idx}] has fallback_years_end but no "
+            "fallback_years_start. Please provide both."
+        )
+
+    if start is not None and end is None:
+        raise ValueError(
+            f"{section_name}.jobs[{idx}] has fallback_years_start but no "
+            "fallback_years_end. Please provide both."
+        )
+
+    if start is not None and end is not None and start > end:
+        raise ValueError(
+            f"{section_name}.jobs[{idx}].fallback_years_start "
+            f"({start}) is greater than fallback_years_end ({end})."
+        )
+
+    return start, end
+
+def _parse_job_use_reference_years(
+    *,
+    section_name: str,
+    idx: int,
+    raw_job: dict[str, Any],
+) -> bool:
+    if "use_reference_years" not in raw_job:
+        return False
+
+    if section_name != "single":
+        raise ValueError(
+            f"{section_name}.jobs[{idx}].use_reference_years is only supported "
+            "for single jobs. Bulk jobs should use years.start and years.end."
+        )
+
+    return _parse_bool(
+        raw_job.get("use_reference_years"),
+        field_name=f"{section_name}.jobs[{idx}].use_reference_years",
+    )
 
 def _load_jobs(section_name: str, section_cfg: dict[str, Any]) -> list[JobConfig]:
+    raw_jobs = section_cfg.get("jobs", [])
+
+    if not isinstance(raw_jobs, list):
+        raise ValueError(f"{section_name}.jobs must be a list")
+
+    jobs: list[JobConfig] = []
+
+    for idx, raw_job in enumerate(raw_jobs):
+        if not isinstance(raw_job, dict):
+            raise ValueError(f"{section_name}.jobs[{idx}] must be a mapping")
+
+        name = str(raw_job.get("name", "")).strip()
+        if not name:
+            raise ValueError(f"{section_name}.jobs[{idx}].name is required")
+
+        params = raw_job.get("params", {})
+        if not isinstance(params, dict):
+            raise ValueError(f"{section_name}.jobs[{idx}].params must be a mapping")
+
+        output_file = str(raw_job.get("output_file", "")).strip()
+        if not output_file:
+            raise ValueError(f"{section_name}.jobs[{idx}].output_file is required")
+
+        local_filter = raw_job.get("local_filter")
+        if local_filter is not None and not isinstance(local_filter, dict):
+            raise ValueError(f"{section_name}.jobs[{idx}].local_filter must be a mapping")
+
+        years_cfg = raw_job.get("years", {})
+        if years_cfg is None:
+            years_cfg = {}
+
+        if not isinstance(years_cfg, dict):
+            raise ValueError(f"{section_name}.jobs[{idx}].years must be a mapping")
+
+        all_years_start, all_years_end = _parse_job_years(
+            section_name=section_name,
+            idx=idx,
+            years_cfg=years_cfg,
+        )
+
+        use_reference_years = _parse_job_use_reference_years(
+            section_name=section_name,
+            idx=idx,
+            raw_job=raw_job,
+        )
+
+        fallback_years_start, fallback_years_end = _parse_job_fallback_years(
+            section_name=section_name,
+            idx=idx,
+            raw_job=raw_job,
+        )
+
+        validate_job_year_source(
+            section_name=section_name,
+            idx=idx,
+            job_name=name,
+            output_file=output_file,
+            all_years_start=all_years_start,
+            all_years_end=all_years_end,
+            use_reference_years=use_reference_years,
+            fallback_years_start=fallback_years_start,
+            fallback_years_end=fallback_years_end,
+        )
+
+        jobs.append(
+            JobConfig(
+                name=name,
+                params=_resolve_params(params),
+                output_file=output_file,
+                local_filter=(
+                    _resolve_params(local_filter)
+                    if isinstance(local_filter, dict)
+                    else None
+                ),
+                all_years_start=all_years_start,
+                all_years_end=all_years_end,
+                use_reference_years=use_reference_years,
+                fallback_years_start=fallback_years_start,
+                fallback_years_end=fallback_years_end,
+            )
+        )
+
+    return jobs
+
+def _load_jobs_deprecared(section_name: str, section_cfg: dict[str, Any]) -> list[JobConfig]:
     raw_jobs = section_cfg.get("jobs", [])
 
     if not isinstance(raw_jobs, list):
@@ -303,7 +464,7 @@ def _load_jobs(section_name: str, section_cfg: dict[str, Any]) -> list[JobConfig
         fallback_years_end = _parse_optional_int(raw_job.get("fallback_years_end"),
                                                 field_name=f"{section_name}.jobs[{idx}].fallback_years_end",)
 
-        _validate_fallback_years_for_job(
+        validate_fallback_years_for_job(
                     section_name=section_name,
                     idx=idx,
                     job_name=name,
