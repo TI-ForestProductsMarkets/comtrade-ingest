@@ -2,7 +2,6 @@
 HS commodity reference sets for Comtrade downloads.
 
 Use these as tokens in configs/comtrade.yaml, e.g.
-
     cmdCode: "WOOD_PANEL"
 """
 
@@ -10,10 +9,11 @@ from __future__ import annotations
 from comtrade_ingest.reference.cmdCode_dict import HS_VALID_YEARS as DEFAULT_HS_VALID_YEARS
 
 # Optional local override.
-# If you define LOCAL_HS_VALID_YEARS below, it will be used instead of the imported default.
+# If you define LOCAL_HS_VALID_YEARS below, it will be used instead of the imported DEFAULT_HS_VALID_YEARS.
+# If you want to use the DEFAULT_HS_VALID_YEARS, simply leave LOCAL_HS_VALID_YEARS undefined or empty.
 
 LOCAL_HS_VALID_YEARS: dict[str, tuple[int, int]] = {
-    "440112": (2017, 2025),
+    "440112": (2024, 2025),
 }
 
 try:
