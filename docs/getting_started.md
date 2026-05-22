@@ -12,8 +12,8 @@ Before using this package, make sure you have:
 
 1. Python 3.11 or newer
 2. Git
-3. A terminal or command line
-4. A UN Comtrade API key
+3. A UN Comtrade API key
+4. A terminal or command line
 
 **Check Python:**
 
@@ -33,7 +33,8 @@ python3 --version
 git --version
 ```
 
-> [!IMPORTANT] If these commands do not work, install Python and Git first.
+> [!IMPORTANT] 
+> If these commands do not work, install Python and Git first.
 
 
 

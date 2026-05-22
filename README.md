@@ -9,7 +9,8 @@ It supports two download modes:
 
 The package is designed around a YAML config file. Users define paths, API settings, jobs, retries, logging, and runtime behavior in `configs/comtrade.yaml`, then run one script.
 
-For a beginner-friendly setup guide, see [Getting Started](docs/getting-started.md).
+> [!NOTE]
+> For a beginner-friendly setup guide, see [Getting Started](docs/getting-started.md).
 
 ---
 
@@ -126,7 +127,8 @@ mv .env.example .env
 COMTRADE_API_KEY=your_api_key_here
 ```
 
-[!CAUTION] The `.env` file should not be committed to GitHub.
+> [!CAUTION] 
+> The `.env` file should not be committed to GitHub.
 
 The default config reads this key from `.env`:
 
