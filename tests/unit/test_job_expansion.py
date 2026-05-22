@@ -1,4 +1,4 @@
-from comtrade_ingest.configs.config import JobConfig
+from comtrade_ingest.config.config import JobConfig
 from comtrade_ingest.comtrade.pipeline import _expand_year_jobs, _expand_cmd_code_jobs
 from comtrade_ingest.comtrade.errors import ConfigValidationError
 from conftest import create_test_config

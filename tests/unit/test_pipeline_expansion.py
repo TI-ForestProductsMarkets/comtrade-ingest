@@ -1,6 +1,6 @@
 import pytest
 
-from comtrade_ingest.configs.config import JobConfig
+from comtrade_ingest.config.config import JobConfig
 from comtrade_ingest.comtrade.pipeline import _expand_jobs
 from comtrade_ingest.comtrade.pipeline import _format_output_file
 from comtrade_ingest.comtrade.manifest import quarantine_invalid_outputs

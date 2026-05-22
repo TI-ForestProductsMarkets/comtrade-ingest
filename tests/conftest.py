@@ -1,7 +1,7 @@
 """Pytest configuration and shared test fixtures."""
 
 from pathlib import Path
-from comtrade_ingest.configs.config import (
+from comtrade_ingest.config.config import (
     ComtradeConfig,
     EndpointConfig,
     ModeConfig,

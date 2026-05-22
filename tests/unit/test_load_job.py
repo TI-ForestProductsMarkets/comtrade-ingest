@@ -1,6 +1,6 @@
 import pytest
 
-from comtrade_ingest.configs.config import _load_jobs
+from comtrade_ingest.config.config import _load_jobs
 
 
 def test_bulk_years_requires_start():

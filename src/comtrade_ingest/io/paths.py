@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from comtrade_ingest.configs.config import ComtradeConfig
+    from comtrade_ingest.config.config import ComtradeConfig
     
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
