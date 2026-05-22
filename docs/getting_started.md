@@ -2,7 +2,7 @@
 
 This guide explains how to download, install, and run `comtrade-ingest` from GitHub.
 
-You do not need to be an expert in Git or Python packaging. Follow the steps below carefully.
+Follow the steps below carefully.
 
 ---
 
@@ -10,12 +10,12 @@ You do not need to be an expert in Git or Python packaging. Follow the steps bel
 
 Before using this package, make sure you have:
 
-- Python 3.11 or newer
-- Git
-- A terminal or command line
-- A UN Comtrade API key
+1. Python 3.11 or newer
+2. Git
+3. A terminal or command line
+4. A UN Comtrade API key
 
-Check Python:
+**Check Python:**
 
 ```bash
 python --version
@@ -27,13 +27,15 @@ or:
 python3 --version
 ```
 
-Check Git:
+**Check Git:**
 
 ```bash
 git --version
 ```
 
-If these commands do not work, install Python and Git first.
+[!IMPORTANT] If these commands do not work, install Python and Git first.
+
+
 
 ## 2. Download the project from GitHub
 
@@ -53,13 +55,13 @@ cd comtrade-ingest
 
 A virtual environment keeps the package dependencies separate from the rest of your system.
 
-Create the environment:
+### 3.1 Create the environment:
 
 ```bash
 python -m venv .venv
 ```
 
-Activate it.
+### 3.2 Activate it.
 
 On Linux or macOS:
 
@@ -95,33 +97,39 @@ pip install -e ".[dev]"
 
 Editable mode means that if you change the source code, Python will use your latest local version automatically.
 
+
 ## 5. Add your UN Comtrade API key
 
 The downloader needs a UN Comtrade API key.
 
-Create a file called `.env` in the project root:
+**Rename the existing `.env.example` file:**
 
 ```bash
-touch .env
+mv .env.example .env
 ```
-
-Open the file and add:
+Open the `.env` file and replace the placeholder with your API key:
 
 ```text
 COMTRADE_API_KEY=your_api_key_here
 ```
 
-Replace `your_api_key_here` with your real API key.
+[!CAUTION] The `.env` file should not be committed to GitHub.
 
-The `.env` file should not be committed to GitHub.
-
-## 6. Edit the configuration file
+## 6. Modify the configuration file
 
 The main configuration file is:
 
 ```text
-configs/comtrade.yaml
+config/comtrade.yaml
 ```
+
+Usually, the first thing a new user should change is only this:
+
+```yaml
+paths:
+        root_dir: "/storage/test"
+```
+All other paths are derived automatically from `root_dir`.
 
 This file controls:
 
@@ -132,7 +140,7 @@ This file controls:
 - which years are downloaded
 - where logs and manifests are written
 
-Example single-mode year configuration:
+**Example single-mode year configuration:**
 
 ```yaml
 single:
@@ -159,7 +167,7 @@ If `use_reference_years: false`, the package uses:
 - `fallback_years_start`
 - `fallback_years_end`
 
-Example bulk-mode year configuration:
+**Example bulk-mode year configuration:**
 
 ```yaml
 bulk:
@@ -175,14 +183,11 @@ bulk:
         partnerCode: "all"
 
       years:
-        enabled: true
         start: 2024
         end: 2025
 
       output_file: "Comtrade_bulk_HS_{period}_all_reporters.zip"
 ```
-
-If the output file contains `{period}`, year expansion must be enabled.
 
 ## 7. Run the downloader
 

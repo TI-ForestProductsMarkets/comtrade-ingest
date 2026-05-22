@@ -57,20 +57,24 @@ comtrade-ingest/
 │   └── comtrade_ingest/
 │       ├── comtrade/
 │       │   ├── api.py
-│       │   ├── config.py
 │       │   ├── download.py
 │       │   ├── manifest.py
+│       │   ├── errors.py
+│       │   ├── validation.py
 │       │   └── pipeline.py
+│       ├── config/
+│       │   └── config.py
 │       ├── io/
-│       │   └── paths.py
+│       │   ├── paths.py
+│       │   └── loaders.py
 │       ├── reference/
 │       │   ├── flow_sets.py
+│       │   ├── cmd_codes.py
 │       │   ├── hs_sets.py
-│       │   └── hs_version_set.py
+│       │   └── hs_versions.py
 │       └── utils/
 │           ├── logger.py
-│           ├── progress.py
-│           └── timing.py
+│           └── progress.py
 └── tests/
 ```
 
@@ -111,11 +115,18 @@ python -c "import comtrade_ingest; print(comtrade_ingest)"
 
 UN Comtrade API requests usually require an API subscription key.
 
-Create a `.env` file in the project root with following content:
+1. Rename the existing `.env.example` file:
+
+```bash
+mv .env.example .env
+```
+2. Open the `.env` file and replace the placeholder with your API key:
 
 ```text
-COMTRADE_API_KEY=your_key_here
+COMTRADE_API_KEY=your_api_key_here
 ```
+
+[!CAUTION] The `.env` file should not be committed to GitHub.
 
 The default config reads this key from `.env`:
 
@@ -138,7 +149,7 @@ If authentication is disabled while using the standard UN Comtrade API endpoint,
 The main config file is:
 
 ```text
-configs/comtrade.yaml
+config/comtrade.yaml
 ```
 
 Usually, the first thing a new user should change is only this:
@@ -185,19 +196,13 @@ The package creates required directories automatically.
 
 ## Running the pipeline
 
-The recommended way during development is:
+Once the package is installed and the configuration is ready, run:
 
 ```bash
-python scripts/run_comtrade_download.py
+comtrade-ingest run
 ```
 
-The script is intentionally minimal. It calls the package pipeline:
-
-```python
-run_comtrade_download_pipeline(...)
-```
-
-The pipeline handles:
+This runs the full download pipeline, including:
 
 - config loading
 - path resolution
@@ -317,7 +322,6 @@ bulk:
                                 partnerCode: "all"
 
                         years:
-                                enabled: true
                                 start: 2024
                                 end: 2025
 
@@ -527,37 +531,7 @@ The test suite covers:
 
 ---
 
-## Development notes
-
-Useful commands:
-
-```bash
-tree -I "__pycache__|*.pyc|*.egg-info|.pytest_cache"
-grep -R "vacoda" -n src tests scripts configs
-pytest -q
-python scripts/run_comtrade_download.py
-```
-
-Before committing:
-
-```bash
-pytest -q
-git status
-```
-
----
-
 ## Current scope
 
-`comtrade-ingest` focuses on downloading and staging raw Comtrade data.
-
-It does not aim to handle:
-
-- HS harmonization
-- data cleaning
-- economic modeling
-- downstream analysis
-- FOB/CIF adjustments
-
-Those should live in downstream packages or analysis projects.
+`comtrade-ingest` focuses on downloading and staging raw Comtrade data using its single and bulk APIs.
 
