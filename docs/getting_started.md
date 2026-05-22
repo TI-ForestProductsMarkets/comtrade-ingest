@@ -33,7 +33,7 @@ python3 --version
 git --version
 ```
 
-[!IMPORTANT] If these commands do not work, install Python and Git first.
+> [!IMPORTANT] If these commands do not work, install Python and Git first.
 
 
 
