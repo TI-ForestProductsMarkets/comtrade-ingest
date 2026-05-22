@@ -113,7 +113,8 @@ Open the `.env` file and replace the placeholder with your API key:
 COMTRADE_API_KEY=your_api_key_here
 ```
 
-[!CAUTION] The `.env` file should not be committed to GitHub.
+> [!CAUTION] 
+> The `.env` file should not be committed to GitHub.
 
 ## 6. Modify the configuration file
 
